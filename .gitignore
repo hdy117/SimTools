@@ -2,3 +2,14 @@
 .vscode
 .idea
 venv
+*build*
+*.lib
+*.dll
+*.a
+*.so
+*.zip
+*.tar.gz
+*.rar
+.vscode
+*.pb.cc
+*.pb.h

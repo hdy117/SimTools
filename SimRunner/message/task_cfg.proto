@@ -1,0 +1,67 @@
+syntax = "proto3";
+import "basic.proto";
+package ss;
+
+// module elf type
+enum ModuleElfType {
+    DynamicLibrary=0;
+    Binary=1;
+}
+
+// module error type
+enum ModuleErrType{
+    MDL_No_Error=0;
+    MDL_Elf_Not_Exist=1;
+    MDL_Init_Timeout=2;
+    MDL_Step_Timeout=3;
+    MDL_Stop_Timeout=4;
+    MDL_Com_Lost=5;
+}
+
+// connection state
+enum ComState{
+    COM_Not_Connected=0;
+    COM_HeartBeat_Lost=1;
+    COM_Lost=2;
+    COM_Connected=3;
+}
+
+// mdl catagory
+enum ModuleCatagory{
+    MDL_Localization=0;
+    MDL_Perception=1;
+    MDL_Planning=2;
+    MDL_Control=3;
+    MDL_Chassis=4;
+
+    SIM_Grading=5;
+    SIM_Sensor=6;
+    SIM_Traffic=7;
+    SIM_Truth=8;
+    SIM_VehicleDynamics=9;
+
+    SIM_Tools=10;
+}
+
+//  configuration of a module
+message ModuleCfg{
+    string name=1;
+    int32 step_time=2;              // step time of module, unit ms
+    int32 init_timeout=3;           // max init time, unit ms
+    int32 step_timeout=4;           // max step time, unit ms
+    int32 stop_timeout=5;           // max stop time, unit ms
+    ModuleElfType elf_type=6;       // module elf type
+    string elf_path=7;              // module elf path
+    repeated SSPair param_user=8;   // init param of module from user input
+}
+
+// tasks
+message Tasks{
+    message Task {
+        string name=1;                  // module name
+        ModuleCfg cfg=2;                // module configuration
+        uint32 priority=3;              // priority of module, used in sim scheduler
+        repeated SSPair param_ss=4;     // init param of module from sim scheduler
+    }
+    repeated Task tasks=1;              // tasks
+}

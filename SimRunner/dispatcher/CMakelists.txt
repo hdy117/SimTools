@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(scheduler)
+
+aux_source_directory(${root_dir}/scheduler scheduler_srcs)
+
+include_directories(${inc_dir} ${root_dir}/scheduler)
+link_directories(${link_dir})
+
+if(WIN32)
+    add_compile_options("/MP")
+
+    include_directories(${msvc_inc_dir})
+    link_directories(${msvc_lib_dir})
+else()
+    add_compile_options(-fPIC)
+endif(WIN32)
+
+add_executable(${ss_scheduler} ${scheduler_srcs})
+target_link_libraries(${ss_scheduler} ${lib_rpc} ${lib_protobuf} ${ss_common} ${ss_msg} ${lib_log} ${lib_sys})

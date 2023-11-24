@@ -1,0 +1,72 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(sim_scheduler)
+
+set(ss_scheduler scheduler CACHE INTERNAL "server")
+set(ss_module_sdk ss_module_sdk CACHE INTERNAL "module sdk")
+set(ss_common ss_common CACHE INTERNAL "common_mdl lib name")
+set(ss_msg ss_msg CACHE INTERNAL "ss_msg lib name")
+
+set(ss_module_a module_a CACHE INTERNAL "module A")
+set(ss_module_b module_b CACHE INTERNAL "module B")
+
+
+set(root_dir ${CMAKE_SOURCE_DIR} CACHE INTERNAL "root dir")
+set(output_bin_dir ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE INTERNAL "binary dir")
+
+set(CMAKE_CXX_STANDARD 11)
+
+set(inc_dir ${root_dir}/common ${root_dir}/message)
+include_directories(${inc_dir})
+
+set(link_dir ${CMAKE_BINARY_DIR} CACHE INTERNAL "link dir")
+link_directories(${link_dir})
+
+set(msvc_dir "E:/work/vcpkg/installed/x64-windows")
+set(msvc_inc_dir "${msvc_dir}/include" CACHE INTERNAL "msvc inc dir")
+set(msvc_lib_dir "${msvc_dir}/lib" CACHE INTERNAL "msvc lib dir")
+
+add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
+
+if(WIN32)
+    add_compile_options("/MP")
+    add_definitions(-D_USE_MATH_DEFINES)
+	add_definitions(-DNOMINMAX)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    
+    include_directories(${msvc_inc_dir})
+    link_directories(${msvc_lib_dir})
+
+    set(lib_log glog.lib gflags.lib)
+    set(lib_protobuf libprotobuf.lib)
+    set(lib_rpc rpc.lib)
+    set(lib_sys shlwapi)
+else()
+    add_compile_options(-fPIC)
+    add_compile_options(-Wall)
+
+    set(lib_log glog gflags)
+    set(lib_protobuf libprotobuf)
+    set(lib_rpc rpc)
+    set(lib_sys pthread)
+endif(WIN32)
+
+# add submodule
+add_subdirectory(${root_dir}/message)
+add_subdirectory(${root_dir}/common)
+add_subdirectory(${root_dir}/module)
+add_subdirectory(${root_dir}/scheduler)
+
+# install build bin
+install(TARGETS ${ss_scheduler} DESTINATION ${output_bin_dir})
+
+# get and copy runtime dlls
+file(GLOB runtime_dlls ${msvc_dir}/bin/*.dll)
+message(INFO "runtime dlls:${runtime_dlls}")
+install(FILES ${runtime_dlls} DESTINATION ${output_bin_dir})
+
+
+
+
+
+

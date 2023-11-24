@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(ss_msg)
+
+aux_source_directory(${root_dir}/message message_src)
+add_library(${ss_msg} STATIC ${message_src})

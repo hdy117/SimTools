@@ -5,7 +5,9 @@ WORKDIR /root/tmp
 COPY ./deps/*.zip /root/tmp/
 
 # 1. update os
-RUN apt update && apt upgrade -y && apt install -y apt-utils
+RUN apt update && apt upgrade -y && apt install -y apt-utils tzdata
+ENV TZ="Asia/ShangHai"
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 2. install necessary libraries and tools
 RUN apt install -y python3-pip libeigen3-dev libjsoncpp-dev gcc cmake build-essential \

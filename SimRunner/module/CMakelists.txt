@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(ss_module_sdk)
+
+aux_source_directory(${root_dir}/module ss_module_sdk_srcs)
+
+include_directories(${inc_dir} ${root_dir}/ss_module_sdk)
+link_directories(${link_dir})
+
+if(WIN32)
+    add_compile_options("/MP")
+
+    include_directories(${msvc_inc_dir})
+    link_directories(${msvc_lib_dir})
+else()
+    add_compile_options(-fPIC)
+endif(WIN32)
+
+add_library(${ss_module_sdk} STATIC ${ss_module_sdk_srcs})
+target_link_libraries(${ss_module_sdk} ${lib_rpc} ${ss_common} ${lib_log} ${lib_sys})
