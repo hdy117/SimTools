@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(cppzmq_playground)
+
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(WIN32)
+    set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
+    set(inc_dirs ${vcpkg_dir}/include ${root_dir})
+    set(lib_dirs ${vcpkg_dir}/lib)
+else()
+    set(inc_dirs /usr/include /usr/lcoal/include)
+    set(lib_dirs /usr/lib /usr/local/lib /usr/bin /usr/local/bin)
+
+    set(lib_zmq )
+endif(WIN32)
+
+include(${inc_dirs})
+link_directories(${lib_dirs})
+
+aux_source_directory(${root_dir} src_files)
