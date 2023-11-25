@@ -5,6 +5,11 @@ project(cppzmq_playground)
 set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WIN32)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	add_definitions(-D_USE_MATH_DEFINES)
+	add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
+	add_compile_options("/MP")
+
     set(deps_dir E:/work/SimReposity/SimTools/deps)
     set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
     set(inc_dirs ${deps_dir}/cppzmq/include ${deps_dir}/ZeroMQ/include
@@ -12,11 +17,15 @@ if(WIN32)
     set(lib_dirs ${deps_dir}/cppzmq/lib ${deps_dir}/ZeroMQ/lib ${vcpkg_dir}/lib)
 
     set(lib_zmq libzmq-v143-mt-s-4_3_5.lib)
+    set(lib_glog glog.lib gflags.lib)
+    set(lib_sys shlwapi)
 else()
     set(inc_dirs /usr/include /usr/local/include)
     set(lib_dirs /usr/lib /usr/local/lib /usr/bin /usr/local/bin)
 
     set(lib_zmq zmq)
+    set(lib_glog glog gflags)
+    set(lib_sys pthread)
 endif(WIN32)
 
 include(${inc_dirs})

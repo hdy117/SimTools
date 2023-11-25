@@ -5,4 +5,4 @@ project(simple_request_reponse)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} src_files)
 
 add_executable(simple_request_reponse ${src_files})
-target_link_libraries(simple_request_reponse )
+target_link_libraries(simple_request_reponse ${lib_zmq} ${lib_glog})
