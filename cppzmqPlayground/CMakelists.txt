@@ -6,8 +6,10 @@ set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WIN32)
     set(deps_dir E:/work/SimReposity/SimTools/deps)
-    set(inc_dirs ${deps_dir}/cppzmq/include ${deps_dir}/ZeroMQ/include ${root_dir})
-    set(lib_dirs ${deps_dir}/cppzmq/lib ${deps_dir}/ZeroMQ/lib)
+    set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
+    set(inc_dirs ${deps_dir}/cppzmq/include ${deps_dir}/ZeroMQ/include
+        ${vcpkg_dir}/include ${root_dir})
+    set(lib_dirs ${deps_dir}/cppzmq/lib ${deps_dir}/ZeroMQ/lib ${vcpkg_dir}/lib)
 
     set(lib_zmq libzmq-v143-mt-s-4_3_5.lib)
 else()
@@ -20,4 +22,4 @@ endif(WIN32)
 include(${inc_dirs})
 link_directories(${lib_dirs})
 
-aux_source_directory(${root_dir} src_files)
+add_subdirectory(${root_dir}/simple_request_reponse)
