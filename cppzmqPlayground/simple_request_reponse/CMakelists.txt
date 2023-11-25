@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.14.0)
 
 project(simple_request_reponse)
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} src_files)
+add_executable(simple_request ${root_dir}/request.cpp)
+target_link_libraries(simple_request ${lib_zmq} ${lib_glog})
 
-add_executable(simple_request_reponse ${src_files})
-target_link_libraries(simple_request_reponse ${lib_zmq} ${lib_glog})
+add_executable(simple_response ${root_dir}/response.cpp)
+target_link_libraries(simple_response ${lib_zmq} ${lib_glog})

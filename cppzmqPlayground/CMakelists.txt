@@ -28,7 +28,7 @@ else()
     set(lib_sys pthread)
 endif(WIN32)
 
-include(${inc_dirs})
+include_directories(${inc_dirs})
 link_directories(${lib_dirs})
 
 add_subdirectory(${root_dir}/simple_request_reponse)
