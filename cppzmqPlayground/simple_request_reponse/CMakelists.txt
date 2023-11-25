@@ -8,3 +8,5 @@ target_link_libraries(simple_request ${lib_zmq} ${lib_glog})
 
 add_executable(simple_response ${root_dir}/response.cpp)
 target_link_libraries(simple_response ${lib_zmq} ${lib_glog})
+
+install(TARGETS simple_request simple_response RUNTIME DESTINATION ${install_dir})

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.14.0)
 project(cppzmq_playground)
 
 set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+set(install_dir ${root_dir}/bin)
 
 if(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -16,19 +17,22 @@ if(WIN32)
         ${vcpkg_dir}/include ${root_dir})
     set(lib_dirs ${deps_dir}/cppzmq/lib ${deps_dir}/ZeroMQ/lib ${vcpkg_dir}/lib)
 
-    set(lib_zmq libzmq-v143-mt-s-4_3_5.lib)
+    set(lib_zmq libzmq-v143-mt-4_3_5.lib)
     set(lib_glog glog.lib gflags.lib)
     set(lib_sys shlwapi)
+    set(lib_protobuf libprotobuf.lib)
 else()
-    set(inc_dirs /usr/include /usr/local/include)
+    set(inc_dirs /usr/include /usr/local/include ${root_dir})
     set(lib_dirs /usr/lib /usr/local/lib /usr/bin /usr/local/bin)
 
     set(lib_zmq zmq)
     set(lib_glog glog gflags)
     set(lib_sys pthread)
+    set(lib_protobuf protobuf)
 endif(WIN32)
 
 include_directories(${inc_dirs})
 link_directories(${lib_dirs})
 
 add_subdirectory(${root_dir}/simple_request_reponse)
+add_subdirectory(${root_dir}/simple_pubsub_weather_report)

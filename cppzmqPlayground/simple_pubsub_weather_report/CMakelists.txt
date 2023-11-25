@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(simple_pubsub_weather_report)
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(weather_core ${root_dir}/weather_core.cpp)
+
+add_executable(weather_pub ${root_dir}/weather_pub.cpp)
+target_link_libraries(weather_pub weather_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
+
+add_executable(weather_sub_beijing ${root_dir}/weather_sub_beijing.cpp)
+target_link_libraries(weather_sub_beijing weather_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
+
+add_executable(weather_sub_shanghai ${root_dir}/weather_sub_shanghai.cpp)
+target_link_libraries(weather_sub_shanghai weather_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
+
+install(TARGETS weather_pub weather_sub_beijing weather_sub_shanghai RUNTIME DESTINATION ${install_dir})
