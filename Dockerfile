@@ -21,7 +21,8 @@ RUN unzip -x cppzmq-4.10.0.zip && cd cppzmq-4.10.0  && \
 RUN python3 -m pip install django zmq glog grpcio-tools -i https://pypi.douban.com/simple
 
 # 4. more libraries and tools
-RUN apt install -y libprotobuf-dev protobuf-compiler
+RUN apt install -y libprotobuf-dev protobuf-compiler && \
+    apt clean
 
 # end. ld-config
 RUN rm -rf /root/tmp/

@@ -13,3 +13,4 @@ venv
 .vscode
 *.pb.cc
 *.pb.h
+cppzmqPlayground/bin

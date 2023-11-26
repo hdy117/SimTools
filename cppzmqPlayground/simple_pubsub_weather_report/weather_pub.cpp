@@ -17,10 +17,10 @@ int main() {
 
 	LOG_0 << "pub server created.\n";
 
-	for (auto i = 0; i < CONST_100; ++i) {
-		weatherInfo_s.emplace_back();
+	// create weather info
+	WeatherInfo weatherInfo;
 
-		auto& weatherInfo = weatherInfo_s.at(i);
+	for (auto i = 0; i < CONST_100; ++i) {
 		if (i & 0x01) {
 			memcpy(weatherInfo.mCityName, city_name::BeiJing.c_str(), city_name::BeiJing.size());
 			weatherInfo.mCityNameLength = city_name::BeiJing.size() + 1;
