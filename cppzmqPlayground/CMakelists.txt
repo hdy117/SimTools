@@ -36,3 +36,4 @@ link_directories(${lib_dirs})
 
 add_subdirectory(${root_dir}/simple_request_reponse)
 add_subdirectory(${root_dir}/simple_pubsub_weather_report)
+add_subdirectory(${root_dir}/simple_push_pull)
