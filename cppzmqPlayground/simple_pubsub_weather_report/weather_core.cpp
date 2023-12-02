@@ -25,7 +25,8 @@ size_t WeatherPuber::publish(const WeatherInfo &weatherInfo) {
   printWeatherInfo(weatherInfo);
   zmq::message_t msg(WeatherInfoSize);
   memcpy(msg.data(), &weatherInfo, WeatherInfoSize);
-  mSocket.send(msg, zmq::send_flags::none);
+  auto sendResult = mSocket.send(msg, zmq::send_flags::none);
+  return sendResult.value();
 }
 
 /****suber****/

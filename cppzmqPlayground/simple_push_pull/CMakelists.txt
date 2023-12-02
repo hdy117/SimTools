@@ -8,7 +8,10 @@ add_library(tasks_core ${root_dir}/tasks_core.cpp)
 add_executable(tasks_ventilator ${root_dir}/tasks_ventilator.cpp)
 target_link_libraries(tasks_ventilator tasks_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
 
+add_executable(tasks_sink ${root_dir}/tasks_sink.cpp)
+target_link_libraries(tasks_sink tasks_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
+
 add_executable(tasks_worker ${root_dir}/tasks_worker.cpp)
 target_link_libraries(tasks_worker tasks_core ${lib_zmq} ${lib_glog} ${lib_protobuf})
 
-install(TARGETS tasks_ventilator tasks_worker RUNTIME DESTINATION ${install_dir})
+install(TARGETS tasks_ventilator tasks_worker tasks_sink RUNTIME DESTINATION ${install_dir})

@@ -13,7 +13,6 @@ int main() {
 	TasksManager taskManager;
 
 	taskManager.distributeTasks();
-	taskManager.collectResults();
 
 	return 0; 
 }

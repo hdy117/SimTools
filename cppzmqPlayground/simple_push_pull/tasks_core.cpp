@@ -5,28 +5,26 @@
 #include <chrono>
 #include <random>
 
+const size_t GlobalTaskNum = 100;
+
 /****puber****/
 
-TasksManager::TasksManager(const std::string& ventilatorPort, const std::string& collectPort) : 
-  mVentilatorPort(ventilatorPort), mCollectorPort(collectPort) {
+TasksManager::TasksManager(const std::string& ventilatorPort) : mVentilatorPort(ventilatorPort){
   mContext = zmq::context_t(2);
-  mTasksNum = 10;
   
   // ventilator that push tasks to workers
   std::string ventilatorAddr = "tcp://0.0.0.0:" + mVentilatorPort;
   mSocketVentilator = zmq::socket_t(mContext, zmq::socket_type::push);
   mSocketVentilator.bind(ventilatorAddr.c_str());
   LOG_0 << "ventilator bind on " << ventilatorAddr << "\n";
-
-  // sink that collects results
-  std::string collectorAddr = "tcp://0.0.0.0:" + mCollectorPort;
-  mSocketCollector = zmq::socket_t(mContext, zmq::socket_type::pull);
-  mSocketCollector.bind(collectorAddr.c_str());
-  LOG_0 << "collector bind on " << collectorAddr << "\n";
 }
-TasksManager::~TasksManager() { mSocketVentilator.close(); mSocketCollector.close(); }
+
+TasksManager::~TasksManager() { 
+  mSocketVentilator.close();
+}
+
 void TasksManager::distributeTasks() {
-  for (size_t i = 0; i < mTasksNum; ++i) {
+  for (size_t i = 0; i < GlobalTaskNum; ++i) {
     zmq::message_t msg(sizeof(size_t));
 
     memcpy(msg.data(), &i, sizeof(size_t));
@@ -34,9 +32,20 @@ void TasksManager::distributeTasks() {
     LOG_0 << "task sent i:" << i << "\n";
   }
 }
-void TasksManager::collectResults() {
+
+TaskCollector::TaskCollector(const std::string& collectPort) : mCollectorPort(collectPort) {
+  // sink that collects results
+  std::string collectorAddr = "tcp://0.0.0.0:" + mCollectorPort;
+  mSocketCollector = zmq::socket_t(mContext, zmq::socket_type::pull);
+  mSocketCollector.bind(collectorAddr.c_str());
+  LOG_0 << "collector bind on " << collectorAddr << "\n";
+}
+TaskCollector::~TaskCollector() {
+  mSocketCollector.close();
+}
+void TaskCollector::collectResults() {
   size_t sum = 0;
-  for (size_t i = 0; i < mTasksNum; ++i) {
+  for (size_t i = 0; i < GlobalTaskNum; ++i) {
     zmq::message_t msg(sizeof(size_t));
 
     mSocketCollector.recv(msg, zmq::recv_flags::none);
@@ -72,10 +81,15 @@ TaskWorker::TaskWorker(const std::string& serverIP, const std::string& ventilato
   mSocketReportResult.connect(serverAddr.c_str());
   LOG_0 << mWorkerName << " report connect to " << serverAddr << ".\n";
 }
-TaskWorker::~TaskWorker() { mSocketRecvTask.close(); mSocketReportResult.close(); }
+
+TaskWorker::~TaskWorker() { 
+  mSocketRecvTask.close(); mSocketReportResult.close(); 
+}
+
 void TaskWorker::work() {
   zmq::message_t msgTask(sizeof(size_t)), msgResult(sizeof(size_t));
 
+  // recv task from ventilator
   mSocketRecvTask.recv(msgTask, zmq::recv_flags::none);
   size_t data = 0;
   memcpy(&data, msgTask.data(), sizeof(size_t));
@@ -83,6 +97,7 @@ void TaskWorker::work() {
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+  // do work and send data to pull sink
   data = data / 2;
   memcpy(msgResult.data(), &data, sizeof(size_t));
   mSocketReportResult.send(msgResult, zmq::send_flags::none);

@@ -4,23 +4,35 @@
 #include <string>
 #include <iostream>
 
+extern const size_t GlobalTaskNum;
+
 /**
  * @brief tasks manager, distribute tasks and collect results
  *
  */
 class TasksManager {
 public:
-  TasksManager(const std::string& ventilatorPort = "5556", const std::string& collectPort = "5557");
+  TasksManager(const std::string& ventilatorPort = "5556");
   virtual ~TasksManager();
   void distributeTasks();
+private:
+  std::string mVentilatorPort;
+
+  zmq::context_t mContext;
+  zmq::socket_t mSocketVentilator;
+};
+
+class TaskCollector {
+public:
+  TaskCollector(const std::string& collectPort = "5557");
+  virtual ~TaskCollector();
   void collectResults();
 
 private:
-  std::string mVentilatorPort, mCollectorPort;
+  std::string mCollectorPort;
 
   zmq::context_t mContext;
-  zmq::socket_t mSocketVentilator, mSocketCollector;
-  size_t mTasksNum;
+  zmq::socket_t mSocketCollector;
 };
 
 /**
