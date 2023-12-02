@@ -4,6 +4,7 @@
 #include <thread>
 #include <chrono>
 #include <random>
+#include <thread>
 
 const size_t GlobalTaskNum = 100;
 
@@ -24,11 +25,17 @@ TasksManager::~TasksManager() {
 }
 
 void TasksManager::distributeTasks() {
+  
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+
+  LOG_0 << "start commit workers.\n";
+
   for (size_t i = 0; i < GlobalTaskNum; ++i) {
     zmq::message_t msg(sizeof(size_t));
 
     memcpy(msg.data(), &i, sizeof(size_t));
     mSocketVentilator.send(msg, zmq::send_flags::none);
+    std::this_thread::sleep_for(std::chrono::milliseconds(110));
     LOG_0 << "task sent i:" << i << "\n";
   }
 }
