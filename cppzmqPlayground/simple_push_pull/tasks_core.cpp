@@ -22,6 +22,7 @@ TasksManager::TasksManager(const std::string& ventilatorPort) : mVentilatorPort(
 
 TasksManager::~TasksManager() { 
   mSocketVentilator.close();
+  mContext.close();
 }
 
 void TasksManager::distributeTasks() {
@@ -49,6 +50,7 @@ TaskCollector::TaskCollector(const std::string& collectPort) : mCollectorPort(co
 }
 TaskCollector::~TaskCollector() {
   mSocketCollector.close();
+  mContext.close();
 }
 void TaskCollector::collectResults() {
   size_t sum = 0;
@@ -90,7 +92,9 @@ TaskWorker::TaskWorker(const std::string& serverIP, const std::string& ventilato
 }
 
 TaskWorker::~TaskWorker() { 
-  mSocketRecvTask.close(); mSocketReportResult.close(); 
+  mSocketRecvTask.close(); 
+  mSocketReportResult.close(); 
+  mContext.close();
 }
 
 void TaskWorker::work() {
