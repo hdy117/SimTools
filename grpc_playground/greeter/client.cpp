@@ -14,8 +14,10 @@ int main(int argc, char *argv[]) {
 
     LOG(INFO) << "client --> " << addr << "\n";
 
+    // channel is the connection between client and server
     std::shared_ptr<grpc::Channel> channel =
         grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
+    // create service client
     std::unique_ptr<sim::Greeter::Stub> stub(sim::Greeter::NewStub(channel));
 
     sim::HelloRequest request_msg;
@@ -31,6 +33,7 @@ int main(int argc, char *argv[]) {
     auto t1 = std::chrono::high_resolution_clock::now();
     const size_t LOOPS = 100000;
     for (auto i = 0; i < LOOPS; ++i) {
+      // create context and invoke rpc call
       grpc::ClientContext context;
       grpc::Status status =
           stub->SayHello(&context, request_msg, &response_msg);
