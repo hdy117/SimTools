@@ -1,7 +1,6 @@
 #include "glog/logging.h"
-#include "grpc++/grpc++.h"
 
-#include "msg/HelloService.grpc.pb.h"
+#include "msg/gen-cpp/GreeterService.h"
 
 #include <chrono>
 #include <string>
