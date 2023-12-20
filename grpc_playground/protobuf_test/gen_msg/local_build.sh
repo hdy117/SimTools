@@ -7,4 +7,7 @@ cd $root_dir/../msg && bash ./generate_cpp_v1.59.3.sh
 rm -rf $root_dir/build
 mkdir -p $root_dir/build
 
-cd $root_dir/build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j8 && cp -v ./libmsg_gen.so ../../main/
+cd $root_dir/build && cmake -DCMAKE_BUILD_TYPE=Release .. && \
+make -j8 && \
+cp -v ./libmsg_gen.so ../../main/ && \
+cp -v ./libmsg_gen.so ../../main_same_protobuf
