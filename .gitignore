@@ -14,3 +14,4 @@ venv
 *.pb.cc
 *.pb.h
 */bin
+!local_build.sh
