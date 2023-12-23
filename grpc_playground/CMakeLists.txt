@@ -12,14 +12,16 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR})
 if(WIN32)
     add_compile_options(/MP)
 
+    set(vcpkg_dir E:/work/vcpkg)
+
     add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
-    add_definitions(-DCMAKE_TOOLCHAIN_FILE=E:/work/vcpkg/scripts/buildsystems/vcpkg.cmake)
+    add_definitions(-DCMAKE_TOOLCHAIN_FILE=${vcpkg_dir}/scripts/buildsystems/vcpkg.cmake)
 
     find_package(gRPC CONFIG REQUIRED)
     find_package(Protobuf CONFIG REQUIRED)
 
-    include_directories(${GRPC_INCLUDE_DIR} ${PROTOBUF_INCLUDE_DIR})
-    link_directories(${GRPC_LIBRARY_DIR} ${PROTOBUF_LIBRARY_DIR} E:/work/vcpkg/installed/x64-windows/lib)
+    include_directories(${GRPC_INCLUDE_DIR} ${PROTOBUF_INCLUDE_DIR}  ${vcpkg_dir}/installed/x64-windows/include)
+    link_directories(${GRPC_LIBRARY_DIR} ${PROTOBUF_LIBRARY_DIR} ${vcpkg_dir}/installed/x64-windows/lib)
     
     message(STATUS "protobuf inc_dir:${PROTOBUF_INCLUDE_DIR}")
 

@@ -12,7 +12,7 @@ if(WIN32)
 	add_compile_options("/MP")
 
     set(deps_dir ${root_dir}/../deps)
-    set(vcpkg_dir D:/work/vcpkg/installed/x64-windows)
+    set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
     set(inc_dirs ${deps_dir}/cppzmq/include ${deps_dir}/ZeroMQ/include
         ${vcpkg_dir}/include ${root_dir})
     set(lib_dirs ${deps_dir}/cppzmq/lib ${deps_dir}/ZeroMQ/lib ${vcpkg_dir}/lib)
