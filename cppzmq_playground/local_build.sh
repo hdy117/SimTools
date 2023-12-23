@@ -1,7 +1,8 @@
 #!/bin/bash
 
 root_dir=$(pwd)
+build_dir=$root_dir/build
 
-mkdir -p $root_dir/build
+mkdir -p $build_dir
 
-cd $root_dir/build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j8 && make install
+cd $build_dir && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j8 && make install

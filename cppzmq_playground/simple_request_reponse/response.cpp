@@ -15,16 +15,11 @@ int main() {
 
 	while (true) {
 		zmq::message_t request_msg;
-
-		LOG_0 << "server waiting request msg.\n";
 		auto recv_result = socket.recv(request_msg, zmq::recv_flags::none);
-		LOG_0 << "server recv result:" << recv_result.value() << ".\n";
-		LOG_0 << "server received msg:" << static_cast<char*>(request_msg.data()) << ", size:" << request_msg.size() << ".\n";
 
 		zmq::message_t replay(6);
 		memcpy(replay.data(), "world", 6);
 		auto send_result = socket.send(replay, zmq::send_flags::none);
-		LOG_0 << "server send result:" << send_result.value() << ".\n";
 	}
 
 	socket.close();
