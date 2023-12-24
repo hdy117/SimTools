@@ -31,9 +31,13 @@ else()
     set(lib_protobuf protobuf)
 endif(WIN32)
 
-include_directories(${inc_dirs})
+include_directories(${inc_dirs} ${CMAKE_CURRENT_SOURCE_DIR})
 link_directories(${lib_dirs})
+
+file(GLOB sim_msg_src_files "${CMAKE_CURRENT_SOURCE_DIR}/message/*.pb.cc")
+add_library(sim_msg ${sim_msg_src_files})
 
 add_subdirectory(${root_dir}/simple_request_reponse)
 add_subdirectory(${root_dir}/simple_pubsub_weather_report)
 add_subdirectory(${root_dir}/simple_push_pull)
+add_subdirectory(${root_dir}/router_request)

@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(router_request)
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(dummy_router ${root_dir}/dummy_router.cpp ${root_dir}/sync_grpc.cpp)
+target_link_libraries(dummy_router ${lib_zmq} ${lib_glog} ${lib_protobuf} sim_msg)
+
+add_executable(dummy_planning ${root_dir}/dummy_planning.cpp ${root_dir}/sync_grpc.cpp)
+target_link_libraries(dummy_planning ${lib_zmq} ${lib_glog} ${lib_protobuf} sim_msg)
+
+add_executable(dummy_car ${root_dir}/dummy_car.cpp ${root_dir}/sync_grpc.cpp)
+target_link_libraries(dummy_car ${lib_zmq} ${lib_glog} ${lib_protobuf} sim_msg)
+
+install(TARGETS dummy_router dummy_planning dummy_car RUNTIME DESTINATION ${install_dir})

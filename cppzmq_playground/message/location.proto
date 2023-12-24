@@ -1,0 +1,12 @@
+syntax = "proto3";
+import "basic.proto";
+package sim;
+
+message Location {
+  Timestamp t = 1;
+  Vec3d position = 2;  // unit m
+  Vec3d velocity = 3;  // unit m/s
+  Vec3d rpy = 4;       // roll, pitch, yaw, unit rad
+  Vec3d acc = 5;       // acceleration, unit m/s2
+  Vec3d angular_v = 6; // angular velocity, unit rad/s
+}

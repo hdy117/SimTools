@@ -1,0 +1,17 @@
+syntax = "proto3";
+import "basic.proto";
+package sim;
+
+message TrajectoryPoint {
+  Timestamp t = 1;
+  double s = 2;
+  Vec3d position = 3; // unit m
+  Vec3d velocity = 4; // unit m/s
+  Vec3d rpy = 5;      // roll, pitch, yaw, unit rad
+  Vec3d acc = 6;      // acceleration, unit m/s2
+}
+
+message Trajectory {
+  Timestamp t = 1;
+  repeated TrajectoryPoint points = 2;
+}
