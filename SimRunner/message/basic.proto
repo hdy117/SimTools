@@ -1,26 +1,26 @@
 syntax = "proto3";
 
-package ss;
+package sim;
 
-message Vec2d{
-    double x=1;
-    double y=2;
+message Vec2d {
+  double x = 1;
+  double y = 2;
 }
 
-message Vec3d{
-    double x=1;
-    double y=2;
-    double z=3;
+message Vec3d {
+  double x = 1;
+  double y = 2;
+  double z = 3;
 }
 
-message Vec4d{
-    double w=1;
-    double x=2;
-    double y=3;
-    double z=4;
+message Vec4d {
+  double w = 1;
+  double x = 2;
+  double y = 3;
+  double z = 4;
 }
 
-message SSPair{
-    string key=1;
-    string val=2;
+message SSPair {
+  string key = 1;
+  string val = 2;
 }
