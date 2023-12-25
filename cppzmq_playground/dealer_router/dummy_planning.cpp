@@ -17,15 +17,13 @@ int main() {
   LOG_0 << "connecting "<< addr << "\n";
 
   // set topic to get from router
-  zmq::message_t request(topic::LOCATION.size() + 1), delimiterMsg(0);
+  zmq::message_t request(topic::LOCATION.size() + 1);
   memcpy(request.data(), topic::LOCATION.c_str(), topic::LOCATION.size() + 1);
-  /*zmq::send_result_t send_result = socket.send(delimiterMsg, zmq::send_flags::sndmore);*/
   auto send_result = socket.send(request, zmq::send_flags::none);
   LOG_0 << "send location request state " << static_cast<size_t>(send_result.value()) << "\n";
 
   // wait for reply
   zmq::message_t reply;
-  //zmq::recv_result_t recv_result = socket.recv(delimiterMsg, zmq::recv_flags::none);
   auto recv_result = socket.recv(reply, zmq::recv_flags::none);
 
   // parse payload

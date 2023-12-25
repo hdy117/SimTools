@@ -16,14 +16,12 @@ int main() {
   socket.connect("tcp://127.0.0.1:5555"); // 172.18.224.1 is server ip
 
   // set topic to get from router
-  zmq::message_t request(topic::TRAJECTORY.size() + 1), delimiterMsg(0);
+  zmq::message_t request(topic::TRAJECTORY.size() + 1);
   memcpy(request.data(), topic::TRAJECTORY.c_str(), topic::TRAJECTORY.size() + 1);
-  //zmq::send_result_t send_result = socket.send(delimiterMsg, zmq::send_flags::none);
   auto send_result = socket.send(request, zmq::send_flags::none);
 
   // wait for reply
   zmq::message_t reply;
-  //zmq::recv_result_t recv_result = socket.recv(delimiterMsg, zmq::recv_flags::none);
   auto recv_result = socket.recv(reply, zmq::recv_flags::none);
 
   // parse payload
