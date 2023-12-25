@@ -23,6 +23,9 @@ int main() {
   // socket type of router
   zmq::socket_t router(context, zmq::socket_type::router);
 
+  // raise up exception if no proper identity find to route
+  router.setsockopt(ZMQ_ROUTER_MANDATORY ,1);   
+
   // bind server to port 5555 from any ip
   router.bind("tcp://0.0.0.0:5555");
   LOG_0 << "binding on tcp://0.0.0.0:5555.\n";
