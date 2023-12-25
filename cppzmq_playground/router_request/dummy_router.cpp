@@ -23,7 +23,7 @@ int main() {
 
   sim::Trajectory trajectory;
   trajectory.mutable_t()->set_time_second(1.1);
-  auto point = trajectory.add_points();
+  auto point = trajectory.add_point();
   point->mutable_position()->set_x(1.2);
   point->mutable_position()->set_y(1.3);
   point->mutable_position()->set_z(1.4);

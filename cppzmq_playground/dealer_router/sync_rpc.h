@@ -51,7 +51,10 @@ class MessageHelper {
 public:
 	static void printMessage(const std::string& topic, const std::string& payload);
 	static void printMessage(const std::string& topic, const google::protobuf::Message& message);
-	static bool parseFromMessage(const zmq::message_t& msg, google::protobuf::Message& message);
+	static bool parseFromZMQMsg(const zmq::message_t& msg, google::protobuf::Message& message);
+	static bool protobufToZMQMsg(zmq::message_t& msg, const google::protobuf::Message& message);
+	static bool stringToZMQMsg(zmq::message_t& msg, const std::string& payload);
+	static bool ZMQMsgToString(const zmq::message_t& msg, std::string& str);
 };
 
 /**
@@ -83,36 +86,48 @@ private:
 };
 
 // service 
-class ServiceImp;
-using ServiceImpPtr = std::shared_ptr<ServiceImp>;
+class ServiceImpBase;
+using ServiceImpBasePtr = std::shared_ptr<ServiceImpBase>;
 
 class Server {
 public:
-	Server(const std::string& serverIP, const std::string& port, const std::string& clientID);
+	Server(const std::string& serverIP, const std::string& port);
 	virtual ~Server();
 
 	Server(const Server&) = delete;
 	Server& operator=(const Server&) = delete;
 public:
 	void serve();
-protected:
-	void serveGetMessageByTopic();
 private:
-	ServiceImpPtr service_;
+	ServiceImpBasePtr service_;
 	std::string serverIP_, serverPort_, serverAddr_;
 	zmq::context_t context_;
+	zmq::socket_t rpcSocket_;
+	InternalState internalState_;			// state of client, 0 means ok, 1 means warning, 2 means fatal
+	std::atomic_bool stop_;
 };
 
-class ServiceImp {
+class ServiceImpBase {
 public:
-	ServiceImp();
-	virtual ~ServiceImp();
+	explicit ServiceImpBase() {}
+	virtual ~ServiceImpBase() {}
 
-	ServiceImp(const ServiceImp&) = delete;
-	ServiceImp& operator=(const ServiceImp&) = delete;
+	ServiceImpBase(const ServiceImpBase&) = delete;
+	ServiceImpBase& operator=(const ServiceImpBase&) = delete;
 
-	sim::RPCServiceStatus getMessageByTopic(const std::string& topic, std::string& payload);
-	sim::RPCServiceStatus setMessageByTopic(const std::string& topic, const std::string& payload);
+	virtual sim::RPCServiceStatus getMessageByTopic(const std::string& topic, std::string& payload) = 0;
+	virtual sim::RPCServiceStatus setMessageByTopic(const std::string& topic, const std::string& payload) = 0;
+public:
+	sim::RPCServiceStatus dispatch(const sim::RPCCallInfo& callInfo, const zmq::message_t& msgReq, zmq::message_t& msgReply);
+};
+
+class ServiceImp_A : public ServiceImpBase {
+public:
+	explicit ServiceImp_A();
+	virtual ~ServiceImp_A();
+
+	virtual sim::RPCServiceStatus getMessageByTopic(const std::string& topic, std::string& payload) override;
+	virtual sim::RPCServiceStatus setMessageByTopic(const std::string& topic, const std::string& payload) override;
 private:
-	
+	std::unordered_map<std::string, std::string> msgMap_;
 };

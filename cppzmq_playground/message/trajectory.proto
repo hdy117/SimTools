@@ -13,5 +13,5 @@ message TrajectoryPoint {
 
 message Trajectory {
   Timestamp t = 1;
-  repeated TrajectoryPoint points = 2;
+  repeated TrajectoryPoint point = 2;
 }

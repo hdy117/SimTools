@@ -12,7 +12,7 @@ message RPCServiceStatus {
 	string info = 2;		    // information about 'state'
 };
 
-message MsgPair {
+message RPCMsgPair {
     string topic = 1;
-    string payload = 2;
+    bytes payload = 2;
 }
