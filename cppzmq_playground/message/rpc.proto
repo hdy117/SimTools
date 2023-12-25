@@ -1,0 +1,18 @@
+syntax = "proto3";
+import "basic.proto";
+package sim;
+
+message RPCCallInfo {
+	string funcName = 1;	    // name of rpc function call
+	uint32 flag = 2;			// reserved
+};
+
+message RPCServiceStatus {
+	uint32 state = 1;			// 0 is ok, 1 warning with reply, 2 fatal without reply
+	string info = 2;		    // information about 'state'
+};
+
+message MsgPair {
+    string topic = 1;
+    string payload = 2;
+}
