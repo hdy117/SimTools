@@ -13,7 +13,7 @@ if(WIN32)
 
     find_package(Protobuf CONFIG REQUIRED PATHS ${vcpkg_dir})
 
-    set(vcpkg_dir D:/work/vcpkg/installed/x64-windows)
+    set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
     set(inc_dirs ${vcpkg_dir}/include ${root_dir})
     set(lib_dirs ${vcpkg_dir}/lib)
 
