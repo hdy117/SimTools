@@ -110,16 +110,13 @@ sim::RPCServiceStatus Client::getMessageByTopic(const std::string &topic,
   rpcSocket_.send(topicMsg, zmq::send_flags::none);
 
   // recv rpc response
-  zmq::message_t servStateMsg;
+  zmq::message_t servStateMsg, replyMsg;
   rpcSocket_.recv(callInfoMsg, zmq::recv_flags::none);
   rpcSocket_.recv(servStateMsg, zmq::recv_flags::none);
-  MessageHelper::parseFromZMQMsg(servStateMsg, serviceStatus);
-
-  // recv
-  zmq::message_t replyMsg;
   rpcSocket_.recv(replyMsg, zmq::recv_flags::none);
 
   // get payload
+  MessageHelper::parseFromZMQMsg(servStateMsg, serviceStatus);
   MessageHelper::ZMQMsgToString(replyMsg, payload);
 
   return serviceStatus;
@@ -159,14 +156,13 @@ sim::RPCServiceStatus Client::setMessageByTopic(const std::string &topic,
   rpcSocket_.send(pairMsg, zmq::send_flags::none);
 
   // recv rpc response
-  zmq::message_t servStateMsg;
+  zmq::message_t servStateMsg, replyMsg;
   rpcSocket_.recv(callInfoMsg, zmq::recv_flags::none);
   rpcSocket_.recv(servStateMsg, zmq::recv_flags::none);
-  MessageHelper::parseFromZMQMsg(servStateMsg, serviceStatus);
-
-  // recv
-  zmq::message_t replyMsg;
   rpcSocket_.recv(replyMsg, zmq::recv_flags::none);
+
+  // parse service status
+  MessageHelper::parseFromZMQMsg(servStateMsg, serviceStatus);
 
   return serviceStatus;
 }
