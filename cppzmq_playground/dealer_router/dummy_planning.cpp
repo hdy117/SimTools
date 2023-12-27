@@ -18,12 +18,12 @@ int main() {
 
 		// subscribe
 		client.getMessageByTopic(topic::LOCATION, payload);
-		MessageHelper::printMessage(topic::TRAJECTORY, payload);
+		MessageHelper::printMessage(topic::LOCATION, payload);
 
 		// data
-		trajectory.mutable_t()->set_time_second(i / 1000.0);
+		trajectory.mutable_t()->set_time_second(i / 100.0);
 		auto point = trajectory.add_point();
-		point->mutable_position()->set_x(i);
+		point->mutable_position()->set_x(i / 1.0);
 		point->mutable_position()->set_y(i / 2.0);
 		point->mutable_position()->set_z(i / 4.0);
 

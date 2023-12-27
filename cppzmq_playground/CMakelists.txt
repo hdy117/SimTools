@@ -11,11 +11,11 @@ if(WIN32)
 	add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
 	add_compile_options("/MP")
 
-    find_package(Protobuf CONFIG REQUIRED PATHS ${vcpkg_dir})
-
     set(vcpkg_dir E:/work/vcpkg/installed/x64-windows)
     set(inc_dirs ${vcpkg_dir}/include ${root_dir})
     set(lib_dirs ${vcpkg_dir}/lib)
+
+    find_package(Protobuf CONFIG REQUIRED PATHS ${vcpkg_dir})
 
     set(lib_zmq libzmq-mt-4_3_5.lib)
     set(lib_glog glog.lib gflags.lib)
@@ -42,3 +42,5 @@ add_subdirectory(${root_dir}/simple_pubsub_weather_report)
 add_subdirectory(${root_dir}/simple_push_pull)
 add_subdirectory(${root_dir}/router_request)
 add_subdirectory(${root_dir}/dealer_router)
+add_subdirectory(${root_dir}/inproc)
+add_subdirectory(${root_dir}/load_balance)

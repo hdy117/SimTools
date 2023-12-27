@@ -215,7 +215,7 @@ void Server::serve() {
     zmq::message_t msgReply, servStatusMsg;
     auto servStatus = service_->dispatch(callInfo, msgReq, msgReply);
 
-    // return result
+    // return result, router know which client to route by msgID
     MessageHelper::protobufToZMQMsg(servStatusMsg, servStatus);
     rpcSocket_.send(msgID, zmq::send_flags::sndmore);
     rpcSocket_.send(msgCallInfo, zmq::send_flags::sndmore);

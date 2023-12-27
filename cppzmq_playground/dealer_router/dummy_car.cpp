@@ -22,6 +22,9 @@ int main() {
 
 		// data
 		location.mutable_t()->set_time_second(i / 1000.0);
+		location.mutable_position()->set_x(i / 1.0);
+		location.mutable_position()->set_y(i / 2.0);
+		location.mutable_position()->set_z(i / 3.0);
 
 		// publish
 		location.SerializeToString(&payload);

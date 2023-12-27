@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(router_request)
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(dummy_inproc ${root_dir}/dummy_inproc.cpp ${sim_msg_src_files})
+target_link_libraries(dummy_inproc ${lib_protobuf} ${lib_zmq} ${lib_glog})
+
+install(TARGETS dummy_inproc RUNTIME DESTINATION ${install_dir})
