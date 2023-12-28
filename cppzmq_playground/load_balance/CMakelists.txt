@@ -4,6 +4,6 @@ project(router_request)
 set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(load_balance ${root_dir}/load_balance.cpp ${sim_msg_src_files})
-target_link_libraries(load_balance ${lib_protobuf} ${lib_zmq} ${lib_glog})
+target_link_libraries(load_balance ${lib_protobuf} ${lib_zmq} ${lib_glog} sim_log)
 
 install(TARGETS load_balance RUNTIME DESTINATION ${install_dir})

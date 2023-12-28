@@ -58,7 +58,7 @@ public:
 		socket_ = zmq::socket_t(context_, zmq::socket_type::dealer);
 		socket_.setsockopt(ZMQ_IDENTITY, id.c_str(), id.size() + 1);
 		socket_.connect(frontEndAddr.c_str());
-		LOG_0 << "client: id:" << id_ << " connected to " << frontEndAddr << "\n";
+		SPDLOG_INFO("client | id:{}, connected to:{}", id_, frontEndAddr);
 	}
 	virtual ~Client() {
 		if(handle_.joinable()) handle_.join();
@@ -84,7 +84,7 @@ public:
 	}
 private:
 	void sendRequestPoll() {
-		for (auto i = 0; i < 10; ++i) {
+		for (auto i = 0; i < 3; ++i) {
 			sendRequest();
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
@@ -97,7 +97,6 @@ private:
 		// prepare task message
 		zmq::message_t taskMsg(sizeof(Task));
 		memcpy(taskMsg.data(), &task, sizeof(Task));
-		LOG_0 << "client:" << id_ << " send: taskID:" << task.meta.taskID << ".\n";
 
 		// send task
 		socket_.send(taskMsg, zmq::send_flags::none);
@@ -109,7 +108,7 @@ private:
 		// collect result
 		TaskResult taskResult;
 		memcpy(&taskResult, taskResultMsg.data(), taskResultMsg.size());
-		LOG_0 << "client:" << id_ << " got: taskID:" << taskResult.meta.taskID << ", taskResult:" << taskResult.sum << ".\n";
+		SPDLOG_INFO("client | id:{}, sent taskID:{}, recv taskID:{}, , taskResult:{:.4f}", id_, task.meta.taskID, taskResult.meta.taskID, taskResult.sum);
 	}
 private:
 	zmq::context_t context_;
@@ -123,13 +122,14 @@ class Worker {
 public:
 	explicit Worker(const std::string& id, const std::string& port = "5557") {
 		stop_ = false;
+		workCounter_ = 0u;
 		id_ = id;
 		std::string backEndAddr = "tcp://127.0.0.1:" + port;
 		context_ = zmq::context_t(1);
 		socket_ = zmq::socket_t(context_, zmq::socket_type::dealer);
 		socket_.setsockopt(ZMQ_IDENTITY, id.c_str(), id.size() + 1);
 		socket_.connect(backEndAddr.c_str());
-		LOG_0 << "worker: id:" << id_ << " connected to " << backEndAddr << "\n";
+		SPDLOG_INFO("worker | id:{}, connected to {}", id_, backEndAddr);
 
 		// tell broker that I am alive
 		zmq::message_t msgAlive(globalConstID_ALIVE.size() + 1);
@@ -163,9 +163,9 @@ private:
 		socket_.recv(clientIDMsg, zmq::recv_flags::none);
 		socket_.recv(taskMsg, zmq::recv_flags::none);
 
-		std::string clientID(static_cast<const char*>(clientIDMsg.data()), clientIDMsg.size());
+		std::string clientID(static_cast<const char*>(clientIDMsg.data()), clientIDMsg.size() - 1);
 		memcpy(&task, taskMsg.data(), taskMsg.size());
-		LOG_0 << "worker:" << id_ << " got task: taskID:" << task.meta.taskID << ".\n";
+		SPDLOG_INFO("worker | id:{}, got task: taskID:{} from {}", id_, task.meta.taskID, clientID);
 
 		// do work
 		taskResult.meta = task.meta;
@@ -179,6 +179,9 @@ private:
 		memcpy(taskResultMsg.data(), &taskResult, sizeof(TaskResult));
 		socket_.send(clientIDMsg, zmq::send_flags::sndmore);
 		socket_.send(taskResultMsg, zmq::send_flags::none);
+
+		workCounter_++;
+		SPDLOG_INFO("worker | id:{} counter:{}", id_, workCounter_.load());
 	}
 private:
 	zmq::context_t context_;
@@ -186,6 +189,7 @@ private:
 	std::thread handle_;
 	std::string id_;
 	std::atomic_bool stop_;
+	std::atomic<uint32_t> workCounter_;
 };
 
 class Broker {
@@ -223,7 +227,7 @@ public:
 			}
 
 			if (pollItems[0].revents & ZMQ_POLLIN) {
-				// if worker ready (may be a signal of ready(globalConstID_ALIVE) or reply of a task)
+				// got something from worker, may be a signal of ready(globalConstID_ALIVE) or reply of a task
 				zmq::message_t msgWorkerID, msgClientID;
 				socketBackEnd_.recv(msgWorkerID, zmq::recv_flags::none);
 				socketBackEnd_.recv(msgClientID, zmq::recv_flags::none);
@@ -233,11 +237,10 @@ public:
 				// mark worker as ready
 				workReadyQueue_.push(workerID);
 
-				LOG_0 << "got msg from worker:" << workerID << ", clientID:" << clientID << "\n";
+				SPDLOG_INFO("broker | got msg from worker:{}, client ID:{}", workerID, clientID);
 
 				// a worker signal to broker that it is alive, no reply needed
 				if (clientID == globalConstID_ALIVE) {
-					// LOG_0 << "got worker alive id:" << globalConstID_ALIVE << "\n";
 					continue;
 				}
 
@@ -258,8 +261,8 @@ public:
 				std::string clientID(static_cast<const char*>(msgClientID.data()), msgClientID.size() - 1);
 				Task task;
 				memcpy(&task, msgTask.data(), msgTask.size());
-
-				LOG_0 << "got msg from client:" << clientID << ", task id:" << task.meta.taskID << "\n";
+				
+				SPDLOG_INFO("broker | got msg from client:{}, task id:{}", clientID, task.meta.taskID);
 				
 				std::string workerID = workReadyQueue_.front();
 				zmq::message_t msgWorkerID(workerID.size() + 1);
@@ -284,6 +287,8 @@ private:
 };
 
 int main() {
+	initSpdlog();
+
 	const int clientNum = 5, workerNum = 3;
 	std::vector<ClientPtr> clients;
 	std::vector<WorkerPtr> workers;

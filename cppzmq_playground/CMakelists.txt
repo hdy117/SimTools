@@ -5,6 +5,8 @@ project(cppzmq_playground)
 set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 set(install_dir ${root_dir}/bin)
 
+add_definitions(-DUse_Spdlog)
+
 if(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	add_definitions(-D_USE_MATH_DEFINES)
@@ -16,9 +18,11 @@ if(WIN32)
     set(lib_dirs ${vcpkg_dir}/lib)
 
     find_package(Protobuf CONFIG REQUIRED PATHS ${vcpkg_dir})
+    find_package(fmt CONFIG REQUIRED  PATHS ${vcpkg_dir})
+    find_package(spdlog CONFIG REQUIRED  PATHS ${vcpkg_dir})
 
     set(lib_zmq libzmq-mt-4_3_5.lib)
-    set(lib_glog glog.lib gflags.lib)
+    set(lib_glog glog.lib gflags.lib fmt.lib)
     set(lib_sys shlwapi)
     set(lib_protobuf protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
 else()
@@ -36,6 +40,7 @@ link_directories(${lib_dirs})
 
 file(GLOB sim_msg_src_files "${CMAKE_CURRENT_SOURCE_DIR}/message/*.pb.cc")
 add_library(sim_msg ${sim_msg_src_files})
+add_library(sim_log ${CMAKE_CURRENT_SOURCE_DIR}/sim_log.cpp)
 
 add_subdirectory(${root_dir}/simple_request_reponse)
 add_subdirectory(${root_dir}/simple_pubsub_weather_report)
