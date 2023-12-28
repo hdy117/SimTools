@@ -212,9 +212,15 @@ public:
 	}
 public:
 	void serve() {
+		// poll item, poll backend first
+		zmq::pollitem_t pollItems[] = { {socketBackEnd_, 0, ZMQ_POLLIN,0},{socketFrontEnd_, 0, ZMQ_POLLIN,0} };
+
 		while (true) {
-			// poll item, poll backend first
-			zmq::pollitem_t pollItems[] = { {socketBackEnd_, 0, ZMQ_POLLIN,0},{socketFrontEnd_, 0, ZMQ_POLLIN,0} };
+			// reset poll items
+			for (auto i = 0; i < 2; ++i) {
+				pollItems[i].fd = 0;
+				pollItems[i].revents = 0;
+			}
 
 			// wait worker to be ready
 			if (workReadyQueue_.empty()) {
