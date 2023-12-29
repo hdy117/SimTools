@@ -76,9 +76,10 @@ private:
 int main() {
 	zmq::context_t context(1);
 	ThreadWait wait(&context);
-	ThreadSignal signal(&context);
+	ThreadSignal signal(&context), signa2(&context);
 
 	signal.startThread();
+	//signa2.startThread(); // no receiver, blocking
 	wait.wait();
 
 	return 0;

@@ -6,6 +6,7 @@ set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 set(install_dir ${root_dir}/bin)
 
 add_definitions(-DUse_Spdlog)
+add_definitions(-DUse_Glog)
 
 if(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -49,3 +50,4 @@ add_subdirectory(${root_dir}/router_request)
 add_subdirectory(${root_dir}/dealer_router)
 add_subdirectory(${root_dir}/inproc)
 add_subdirectory(${root_dir}/load_balance)
+add_subdirectory(${root_dir}/dummy_proxy)
