@@ -16,3 +16,4 @@ venv
 */bin
 !local_build.sh
 *.txt
+!*CMakeLists.txt
