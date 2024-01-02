@@ -77,7 +77,7 @@ void ClusterState::runTask() {
 
 		// make sure sleep for one second
 		auto elapsedTime_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-		LOG_0 << clusterName_ << " elapsedTime_ms:" << elapsedTime_ms << "\n";
+		//LOG_0 << clusterName_ << " elapsedTime_ms:" << elapsedTime_ms << "\n";
 		if (elapsedTime_ms < kPollTimeout) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(kPollTimeout - elapsedTime_ms));
 		}
