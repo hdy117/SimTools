@@ -38,14 +38,14 @@ float MiscHelper::randomFloat() {
 ////////////////////////////////
 
 ClusterStateProxy::ClusterStateProxy(const std::string& xpubPort, const std::string& xsubPort) {
-	std::string xpubAddr = "tcp://0.0.0.0:" + xpubPort;
-	std::string xsubAddr = "tcp://0.0.0.0:" + xsubPort;
-
 	context_ = zmq::context_t(1);
-	socketXPub_ = zmq::socket_t(context_, zmq::socket_type::xpub); 
-	socketXSub_ = zmq::socket_t(context_, zmq::socket_type::xsub);
 
+	std::string xpubAddr = "tcp://0.0.0.0:" + xpubPort;
+	socketXPub_ = zmq::socket_t(context_, zmq::socket_type::xpub); 
 	socketXPub_.bind(xpubAddr);
+
+	std::string xsubAddr = "tcp://0.0.0.0:" + xsubPort;
+	socketXSub_ = zmq::socket_t(context_, zmq::socket_type::xsub);
 	socketXSub_.bind(xsubAddr);
 }
 ClusterStateProxy::~ClusterStateProxy() {

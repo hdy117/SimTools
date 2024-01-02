@@ -3,20 +3,23 @@
 ClusterState::ClusterState(const std::string& clusterName, const std::string& xpubxsubIP, const std::string& xpubPort, const std::string& xsubPort) {
 	clusterName_ = clusterName;
 	xpubxsubIP_ = xpubxsubIP;
-	xpubPort_ = xpubPort;
-	xsubPort_ = xsubPort;
+	
 	context_ = zmq::context_t(1);
-	socketStatePub_ = zmq::socket_t(context_, zmq::socket_type::pub);
-	socketStateSub_ = zmq::socket_t(context_, zmq::socket_type::sub);
 
-	std::string xpubAddr = "tcp://" + xpubxsubIP_ + ":" + xpubPort_;
+	xsubPort_ = xsubPort;
 	std::string xsubAddr = "tcp://" + xpubxsubIP_ + ":" + xsubPort_;
-
+	socketStatePub_ = zmq::socket_t(context_, zmq::socket_type::pub);
 	socketStatePub_.connect(xsubAddr);
-	socketStateSub_.connect(xpubAddr);
-
 	LOG_0 << clusterName << " pub connect to :" << xsubAddr << ".\n";
+	
+	xpubPort_ = xpubPort;
+	std::string xpubAddr = "tcp://" + xpubxsubIP_ + ":" + xpubPort_;
+	socketStateSub_ = zmq::socket_t(context_, zmq::socket_type::sub);
+	socketStateSub_.connect(xpubAddr);
+	socketStateSub_.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 	LOG_0 << clusterName << " sub connect to :" << xpubAddr << ".\n";
+
+	LOG_0 << SEPERATOR << "\n";
 }
 ClusterState::~ClusterState() {
 	socketStatePub_.close();
@@ -25,20 +28,20 @@ ClusterState::~ClusterState() {
 }
 void ClusterState::runTask() {
 	LOG_0 << "hi, this is cluster state" << clusterName_ << " thread.\n";
-
-	/*zmq::pollitem_t pollItems[] = { {socketStateSub_, 0, ZMQ_POLLIN,0} };*/
+	const int kPollTimeout = 1000;
+	std::chrono::high_resolution_clock::time_point t1, t2;
 
 	while (!stopTask_) {
 		LOG_0 << SEPERATOR << "\n";
 
-		// clear poll
-		/*pollItems[0].fd = 0;
-		pollItems[0].revents = 0;*/
+		// timestamp
+		t1 = std::chrono::high_resolution_clock::now();
+
+		// poll
 		zmq::pollitem_t pollItems[] = { {socketStateSub_, 0, ZMQ_POLLIN,0} };
 		
-		// poll on sub socket with timeout 1000ms
-		zmq::poll(pollItems, 1, 10);
-		LOG_0 << clusterName_<<" pollItems[0].revents:" << pollItems[0].revents << "\n";
+		// poll on sub socket with timeout kPollTimeout ms
+		int rc = zmq::poll(pollItems, 1, kPollTimeout);
 		
 		// if data polled
 		if (pollItems[0].revents & ZMQ_POLLIN) {
@@ -47,10 +50,9 @@ void ClusterState::runTask() {
 			socketStateSub_.recv(oneClusterStateInfoMsg, zmq::recv_flags::none);
 
 			memcpy(&oneClusterStateInfo, oneClusterStateInfoMsg.data(), oneClusterStateInfoMsg.size());
-			LOG_0 << clusterName_ << " got:" << oneClusterStateInfo.clusterName << ", ready worker count:" << oneClusterStateInfo.readyWorkerCount << "\n";
-		}
-		else {
-			
+			if (oneClusterStateInfo.clusterName != clusterName_) {
+				LOG_0 << clusterName_ << " got:" << oneClusterStateInfo.clusterName << ", ready worker count:" << oneClusterStateInfo.readyWorkerCount << "\n";
+			}
 		}
 
 		// publish this cluster state info
@@ -62,7 +64,13 @@ void ClusterState::runTask() {
 		socketStatePub_.send(stateInfoMsg, zmq::send_flags::none);
 		LOG_0 << thisClusterStateInfo.clusterName << " ready worker count:" << thisClusterStateInfo.readyWorkerCount << "\n";
 
-		// sleep for one second
-		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		// timestamp
+		t2 = std::chrono::high_resolution_clock::now();
+
+		// make sure sleep for one second
+		auto elapsedTime_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+		if (elapsedTime_ms < kPollTimeout) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(kPollTimeout - elapsedTime_ms));
+		}
 	}
 }
