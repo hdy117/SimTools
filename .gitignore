@@ -17,4 +17,4 @@ venv
 !local_build.sh
 *.txt
 !*CMakeLists.txt
-logs
+logs/*log.INFO*
