@@ -16,7 +16,8 @@ ClusterState::ClusterState(const std::string& clusterName, const std::string& xp
 	std::string xpubAddr = "tcp://" + xpubxsubIP_ + ":" + xpubPort_;
 	socketStateSub_ = zmq::socket_t(context_, zmq::socket_type::sub);
 	socketStateSub_.connect(xpubAddr);
-	socketStateSub_.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+	socketStateSub_.setsockopt(ZMQ_SUBSCRIBE, "CS", 2);
+	socketStateSub_.setsockopt(ZMQ_UNSUBSCRIBE, clusterName_.c_str(), clusterName_.size());
 	LOG_0 << clusterName << " sub connect to :" << xpubAddr << ".\n";
 
 	LOG_0 << SEPERATOR << "\n";
@@ -50,9 +51,9 @@ void ClusterState::runTask() {
 			socketStateSub_.recv(oneClusterStateInfoMsg, zmq::recv_flags::none);
 
 			memcpy(&oneClusterStateInfo, oneClusterStateInfoMsg.data(), oneClusterStateInfoMsg.size());
-			if (oneClusterStateInfo.clusterName != clusterName_) {
+			//if (oneClusterStateInfo.clusterName != clusterName_) {
 				LOG_0 << clusterName_ << " got:" << oneClusterStateInfo.clusterName << ", ready worker count:" << oneClusterStateInfo.readyWorkerCount << "\n";
-			}
+			//}
 		}
 
 		// publish this cluster state info
