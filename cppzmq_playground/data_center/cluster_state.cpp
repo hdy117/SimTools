@@ -60,7 +60,7 @@ void ClusterState::runTask() {
 			LOG_0 << clusterName_ << " got:" << oneClusterStateInfo.clusterName << ", ready worker count:" << oneClusterStateInfo.readyWorkerCount << "\n";
 		}
 		else {
-			// publish this cluster state info
+			// publish this cluster state info if timeout
 			ClusterStateInfo thisClusterStateInfo;
 			memcpy(thisClusterStateInfo.clusterName, clusterName_.c_str(), clusterName_.size() + 1);
 			thisClusterStateInfo.readyWorkerCount = MiscHelper::randomInt();
