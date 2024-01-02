@@ -67,7 +67,7 @@ public:
 	}
 public:
 	void startThread() {
-		handle_ = std::thread(&Client::sendRequestPoll, this);
+		handle_ = std::thread(&Client::sendRequest, this);
 	}
 	const std::string& getID() { return id_; }
 	void genTask(Task& task) {
@@ -83,13 +83,13 @@ public:
 		task.meta.taskType = 1;
 	}
 private:
-	void sendRequestPoll() {
+	void sendRequest() {
 		for (auto i = 0; i < 3; ++i) {
-			sendRequest();
+			sendRequestImp();
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
-	void sendRequest() {
+	void sendRequestImp() {
 		// generate task
 		Task task;
 		genTask(task);
@@ -143,17 +143,17 @@ public:
 	}
 public:
 	void startThread() {
-		handle_ = std::thread(&Worker::processPoll, this);
+		handle_ = std::thread(&Worker::process, this);
 	}
 	const std::string& getID() { return id_; }
 private:
-	void processPoll() {
+	void process() {
 		while (!stop_) {
-			process();
+			processImp();
 			std::this_thread::sleep_for(std::chrono::milliseconds(111));
 		}
 	}
-	void process() {
+	void processImp() {
 		// task
 		Task task;
 		TaskResult taskResult;

@@ -3,6 +3,8 @@
 //#define Use_Glog 1
 //#define Use_Spdlog 1
 
+#define SEPERATOR "*************************\n"
+
 #ifdef Use_Glog
 #include "glog/logging.h"
 

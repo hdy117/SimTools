@@ -54,20 +54,31 @@ public:
 		stop_ = false;
 		id_ = id;
 		std::string frontEndAddr = "tcp://127.0.0.1:" + port;
-		context_ = zmq::context_t(1);
+		context_ = zmq::context_t(2);
 		socket_ = zmq::socket_t(context_, zmq::socket_type::dealer);
 		socket_.setsockopt(ZMQ_IDENTITY, id.c_str(), id.size() + 1);
 		socket_.connect(frontEndAddr.c_str());
 		LOG_0 << "client | id:" << id_ << ", connected to:" << frontEndAddr << "\n";
 	}
 	virtual ~Client() {
-		if(handle_.joinable()) handle_.join();
+		if (handle_.joinable()) handle_.join();
+		if (handlePoll_.joinable()) handlePoll_.join();
 		socket_.close();
 		context_.close();
 	}
 public:
+	/**
+	 * @brief start thread send and poll
+	*/
 	void startThread() {
 		handle_ = std::thread(&Client::sendRequest, this);
+		handlePoll_ = std::thread(&Client::poll, this);
+	}
+	/**
+	 * @brief stop client
+	*/
+	void stopClient() {
+		stop_ = true;
 	}
 	const std::string& getID() { return id_; }
 	void genTask(Task& task) {
@@ -83,6 +94,27 @@ public:
 		task.meta.taskType = 1;
 	}
 private:
+	void poll() {
+		zmq::pollitem_t pollItems[] = { {socket_, 0 ,ZMQ_POLLIN, 0} };
+		TaskResult taskResult;
+		while (!stop_) {
+			pollItems[0].fd = 0;
+			pollItems[0].revents = 0;
+
+			// poll with timeout 10ms
+			auto polledItems = zmq::poll(pollItems, 1, kTimeOut);
+			if (polledItems == 0) {
+				LOG_1 << "client | got nothing from server within " << kTimeOut << "[ms].\n";
+				//SPDLOG_INFO("client | got nothing from server within {}[ms]", kTimeOut);
+			}
+			else if(pollItems[0].revents & ZMQ_POLLIN) {
+				zmq::message_t msgReply;
+				socket_.recv(msgReply, zmq::recv_flags::none);
+				memcpy(&taskResult, msgReply.data(), msgReply.size());
+				LOG_0 << "client | got task:" << taskResult.meta.taskID << ", value:" << taskResult.sum << ".\n";
+			}
+		}
+	}
 	void sendRequest() {
 		for (auto i = 0; i < 3; ++i) {
 			sendRequestImp();
@@ -101,33 +133,24 @@ private:
 		// send task
 		socket_.send(taskMsg, zmq::send_flags::none);
 		LOG_0 << "client | id:" << id_ << ", sent taskID:" << task.meta.taskID << "\n";
-
-		// wait for result
-		zmq::message_t taskResultMsg;
-		socket_.recv(taskResultMsg, zmq::recv_flags::none);
-
-		// collect result
-		TaskResult taskResult;
-		memcpy(&taskResult, taskResultMsg.data(), taskResultMsg.size());
-		LOG_0 << "client | id:" << id_ << ", sent taskID:" << task.meta.taskID << ", recv taskID:" << taskResult.meta.taskID << ", taskResult:" << taskResult.sum << "\n";
 	}
 private:
 	zmq::context_t context_;
 	zmq::socket_t socket_;
-	std::thread handle_;
+	std::thread handle_, handlePoll_;
 	std::string id_;
 	std::atomic_bool stop_;
+	const long kTimeOut = 100;
 };
 
 class Worker {
 public:
 	explicit Worker(const std::string& id, const std::string& port = "5557") {
 		stop_ = false;
-		workCounter_ = 0u;
 		id_ = id;
 		std::string backEndAddr = "tcp://127.0.0.1:" + port;
 		context_ = zmq::context_t(1);
-		socket_ = zmq::socket_t(context_, zmq::socket_type::router);
+		socket_ = zmq::socket_t(context_, zmq::socket_type::dealer);
 		socket_.connect(backEndAddr.c_str());
 		LOG_0 << "worker | id:" << id_ << ", connected to " << backEndAddr << "\n";
 
@@ -146,7 +169,6 @@ private:
 	void process() {
 		while (!stop_) {
 			processImp();
-			std::this_thread::sleep_for(std::chrono::milliseconds(111));
 		}
 	}
 	void processImp() {
@@ -156,14 +178,15 @@ private:
 
 		// wait for task
 		zmq::message_t brokerIDMsg, clientIDMsg, taskMsg;
-		socket_.recv(brokerIDMsg, zmq::recv_flags::none);
+		//socket_.recv(brokerIDMsg, zmq::recv_flags::none);
 		socket_.recv(clientIDMsg, zmq::recv_flags::none);
 		socket_.recv(taskMsg, zmq::recv_flags::none);
 
-		std::string brokerID(static_cast<const char*>(brokerIDMsg.data()), brokerIDMsg.size() - 1);
+		//std::string brokerID(static_cast<const char*>(brokerIDMsg.data()), brokerIDMsg.size() - 1);
 		std::string clientID(static_cast<const char*>(clientIDMsg.data()), clientIDMsg.size() - 1);
 		memcpy(&task, taskMsg.data(), taskMsg.size());
-		LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << task.meta.taskID << " from client:" << clientID << ", broker:" << brokerID << "\n";
+		//LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << task.meta.taskID << " from client:" << clientID << ", broker:" << brokerID << "\n";
+		LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << task.meta.taskID << " from client:" << clientID << "\n";
 
 		// do work
 		taskResult.meta = task.meta;
@@ -172,15 +195,17 @@ private:
 			taskResult.sum += task.arr[i];
 		}
 
-		// send result
-		zmq::message_t taskResultMsg(sizeof(TaskResult));
-		memcpy(taskResultMsg.data(), &taskResult, sizeof(TaskResult));
-		socket_.send(brokerIDMsg, zmq::send_flags::sndmore);
-		socket_.send(clientIDMsg, zmq::send_flags::sndmore);
-		socket_.send(taskResultMsg, zmq::send_flags::none);
-
-		workCounter_++;
-		LOG_0 << "worker | id:" << id_ << " counter:" << workCounter_.load() << "\n";
+		// send result multiple times
+		for (auto i = 0; i < 10; ++i) {
+			zmq::message_t taskResultMsg(sizeof(TaskResult)), copyIDMsg, copyReplyMsg;
+			memcpy(taskResultMsg.data(), &taskResult, sizeof(TaskResult));
+			copyIDMsg.copy(clientIDMsg);
+			copyReplyMsg.copy(taskMsg);
+			//socket_.send(brokerIDMsg, zmq::send_flags::sndmore);
+			socket_.send(copyIDMsg, zmq::send_flags::sndmore);
+			socket_.send(copyReplyMsg, zmq::send_flags::none);
+			//std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		}
 	}
 private:
 	zmq::context_t context_;
@@ -188,7 +213,6 @@ private:
 	std::thread handle_;
 	std::string id_;
 	std::atomic_bool stop_;
-	std::atomic<uint32_t> workCounter_;
 };
 
 class BrokerBase {
@@ -216,7 +240,7 @@ public:
 		context_.close();
 	}
 public:
-	virtual void serve() override{
+	virtual void serve() override {
 		zmq::proxy(socketFrontend_, socketBackend_, nullptr);
 	}
 private:
@@ -226,10 +250,13 @@ private:
 	std::queue<std::string> workReadyQueue_;
 };
 
-int main() {
+int main(int argc, char* argv[]) {
+	//google::InitGoogleLogging(argv[0]);
 	initSpdlog();
 
-	const int clientNum = 5, workerNum = 3;
+	FLAGS_v = 1;
+
+	const int clientNum = 1, workerNum = 1;
 	std::vector<ClientPtr> clients;
 	std::vector<WorkerPtr> workers;
 
