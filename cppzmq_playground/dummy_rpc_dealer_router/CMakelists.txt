@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.14.0)
+
+project(router_request)
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(rpc_dummy_car ${root_dir}/dummy_car.cpp ${root_dir}/sync_rpc.cpp ${sim_msg_src_files})
+target_link_libraries(rpc_dummy_car ${lib_protobuf} ${lib_zmq} ${lib_glog} sim_log)
+
+add_executable(rpc_dummy_planning ${root_dir}/dummy_planning.cpp ${root_dir}/sync_rpc.cpp ${sim_msg_src_files})
+target_link_libraries(rpc_dummy_planning ${lib_protobuf} ${lib_zmq} ${lib_glog} sim_log)
+
+add_executable(rpc_dummy_router ${root_dir}/dummy_router.cpp ${root_dir}/sync_rpc.cpp ${sim_msg_src_files})
+target_link_libraries(rpc_dummy_router ${lib_protobuf} ${lib_zmq} ${lib_glog} sim_log)
+
+install(TARGETS rpc_dummy_car rpc_dummy_planning rpc_dummy_router  RUNTIME DESTINATION ${install_dir})
