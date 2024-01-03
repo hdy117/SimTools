@@ -89,25 +89,3 @@ void ClusterStateProxy::subscribe(const std::string& topicPrefix) {
 		socketPull_.setsockopt(ZMQ_SUBSCRIBE, topic.c_str(), topic.size());
 	}
 }
-
-//ClusterStateProxy::ClusterStateProxy(const std::string& xpubPort, const std::string& subPort) {
-//	context_ = zmq::context_t(1);
-//
-//	std::string xpubAddr = "tcp://0.0.0.0:" + xpubPort;
-//	socketXPub_ = zmq::socket_t(context_, zmq::socket_type::xpub); 
-//	socketXPub_.bind(xpubAddr);
-//
-//	std::string subAddr = "tcp://0.0.0.0:" + subPort;
-//	socketXSub_ = zmq::socket_t(context_, zmq::socket_type::xsub);
-//	socketXSub_.bind(subAddr);
-//}
-//ClusterStateProxy::~ClusterStateProxy() {
-//	socketXPub_.close();
-//	socketXSub_.close();
-//	context_.close();
-//}
-//void ClusterStateProxy::runTask() {
-//	LOG_0 << "hi, this is cluster state proxy thread.\n";
-//	// blocking proxy
-//	zmq::proxy(socketXSub_, socketXPub_, nullptr);
-//}
