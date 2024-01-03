@@ -8,11 +8,15 @@ public:
 	virtual ~ClusterState();
 	virtual void runTask() override;
 public:
+	void setSubscribe();
+public:
 	inline const std::string& getClusterName() const { return clusterName_; }
+	const ClusterStateInfo& getClusterStateInfo() const { return clusterStateInfo_; };
 private:
 	zmq::context_t context_;
 	zmq::socket_t socketStatePub_;
 	zmq::socket_t socketStateSub_;
 	std::string xpubxsubIP_, xpubPort_, xsubPort_;
 	std::string clusterName_;
+	ClusterStateInfo clusterStateInfo_;
 };

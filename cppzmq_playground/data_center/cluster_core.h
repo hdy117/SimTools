@@ -45,6 +45,7 @@ struct ClusterStateInfo {
 namespace constant {
 	const std::string kXPubPort("5556");
 	const std::string kXSubPort("5557");
+	const uint32_t kMaxCluster = 20;
 }
 
 class MessageHelper {
