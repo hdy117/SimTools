@@ -37,25 +37,77 @@ float MiscHelper::randomFloat() {
 
 ////////////////////////////////
 
-ClusterStateProxy::ClusterStateProxy(const std::string& xpubPort, const std::string& xsubPort) {
+ClusterStateProxy::ClusterStateProxy(const std::string& pullPort) {
 	context_ = zmq::context_t(1);
 
-	std::string xpubAddr = "tcp://0.0.0.0:" + xpubPort;
-	socketXPub_ = zmq::socket_t(context_, zmq::socket_type::xpub); 
-	socketXPub_.bind(xpubAddr);
-
-	std::string xsubAddr = "tcp://0.0.0.0:" + xsubPort;
-	socketXSub_ = zmq::socket_t(context_, zmq::socket_type::xsub);
-	socketXSub_.bind(xsubAddr);
+	// bind to pull port
+	std::string subAddr = "tcp://0.0.0.0:" + pullPort;
+	socketPull_ = zmq::socket_t(context_, zmq::socket_type::pull);
+	socketPull_.bind(subAddr);
+	LOG_0 << "cluster state proxy bind on " << subAddr << "\n";
 }
 ClusterStateProxy::~ClusterStateProxy() {
-	socketXPub_.close();
-	socketXSub_.close();
+	socketPull_.close();
 	context_.close();
 }
-
 void ClusterStateProxy::runTask() {
 	LOG_0 << "hi, this is cluster state proxy thread.\n";
-	// blocking proxy
-	zmq::proxy(socketXSub_, socketXPub_, nullptr);
+	const int64_t kPollTimeout = 2;
+	while (!stopTask_) {
+		// poll on subscribe socket
+		zmq::pollitem_t pollItems[] = { {socketPull_, 0, ZMQ_POLLIN,0} };
+		zmq::poll(pollItems, 1, kPollTimeout);
+		
+		if (pollItems[0].revents & ZMQ_POLLIN) {
+			// sub one cluster info message
+			zmq::message_t clusterStateMsg;
+			socketPull_.recv(clusterStateMsg, zmq::recv_flags::none);
+			
+			// copy data from subscribed message
+			ClusterStateInfoPtr clusterStatePtr = std::make_shared<ClusterStateInfo>();
+			memcpy(clusterStatePtr.get(), clusterStateMsg.data(), clusterStateMsg.size());
+
+			// add to clusterInfoMap_
+			clusterInfoMap_[std::string(clusterStatePtr->clusterName)] = clusterStatePtr;
+
+			LOG_0 << "super-broker got: " << clusterStatePtr->clusterName
+				<< ", ready worker count:" << clusterStatePtr->readyWorkerCount << "\n";
+		}
+	}
 }
+void ClusterStateProxy::printClusterStateMap() {
+	// print cluster state array
+	for (const auto& pairClusterState : clusterInfoMap_) {
+		LOG_0 <<"super-broker got: "<< pairClusterState.second->clusterName 
+			<< ", ready worker count:" << pairClusterState.second->readyWorkerCount << "\n";
+	}
+}
+void ClusterStateProxy::subscribe(const std::string& topicPrefix) {
+	// set subscribe and unsubscribe topics
+	for (auto i = 1; i <= constant::kMaxCluster; ++i) {
+		std::string topic = topicPrefix + std::to_string(i);
+		socketPull_.setsockopt(ZMQ_SUBSCRIBE, topic.c_str(), topic.size());
+	}
+}
+
+//ClusterStateProxy::ClusterStateProxy(const std::string& xpubPort, const std::string& subPort) {
+//	context_ = zmq::context_t(1);
+//
+//	std::string xpubAddr = "tcp://0.0.0.0:" + xpubPort;
+//	socketXPub_ = zmq::socket_t(context_, zmq::socket_type::xpub); 
+//	socketXPub_.bind(xpubAddr);
+//
+//	std::string subAddr = "tcp://0.0.0.0:" + subPort;
+//	socketXSub_ = zmq::socket_t(context_, zmq::socket_type::xsub);
+//	socketXSub_.bind(subAddr);
+//}
+//ClusterStateProxy::~ClusterStateProxy() {
+//	socketXPub_.close();
+//	socketXSub_.close();
+//	context_.close();
+//}
+//void ClusterStateProxy::runTask() {
+//	LOG_0 << "hi, this is cluster state proxy thread.\n";
+//	// blocking proxy
+//	zmq::proxy(socketXSub_, socketXPub_, nullptr);
+//}

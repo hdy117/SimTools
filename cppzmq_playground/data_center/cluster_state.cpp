@@ -1,79 +1,41 @@
 #include "cluster_state.h"
 
-ClusterState::ClusterState(const std::string& clusterName, const std::string& xpubxsubIP, const std::string& xpubPort, const std::string& xsubPort) {
+ClusterState::ClusterState(const std::string& clusterName, 
+	const std::string& pullerIP, const std::string& pullPort) {
 	LOG_0 << SEPERATOR << "\n";
 
 	clusterName_ = clusterName;
-	xpubxsubIP_ = xpubxsubIP;
+	pullerIP_ = pullerIP;
 
 	memcpy(clusterStateInfo_.clusterName, clusterName_.c_str(), clusterName_.size() + 1);
 	clusterStateInfo_.readyWorkerCount = 0;
 
 	context_ = zmq::context_t(1);
 
-	xsubPort_ = xsubPort;
-	std::string xsubAddr = "tcp://" + xpubxsubIP_ + ":" + xsubPort_;
-	socketStatePub_ = zmq::socket_t(context_, zmq::socket_type::pub);
-	socketStatePub_.connect(xsubAddr);
-	LOG_0 << clusterName << " pub connect to :" << xsubAddr << ".\n";
-
-	xpubPort_ = xpubPort;
-	std::string xpubAddr = "tcp://" + xpubxsubIP_ + ":" + xpubPort_;
-	socketStateSub_ = zmq::socket_t(context_, zmq::socket_type::sub);
-	socketStateSub_.connect(xpubAddr);
-
-	// set subscribe and unsubscribe topics
-	setSubscribe();
-	
-	LOG_0 << clusterName << " sub connect to :" << xpubAddr << ".\n";
+	pullPort_ = pullPort;
+	std::string subAddr = "tcp://" + pullerIP_ + ":" + pullPort_;
+	socketPush_ = zmq::socket_t(context_, zmq::socket_type::push);
+	socketPush_.connect(subAddr);
+	LOG_0 << clusterName << " push connect to :" << subAddr << ".\n";
 }
 ClusterState::~ClusterState() {
-	socketStatePub_.close();
-	socketStateSub_.close();
+	socketPush_.close();
 	LOG_0 << "cluster " << clusterName_ << " quit.\n";
-}
-void ClusterState::setSubscribe() {
-	// set subscribe and unsubscribe topics
-	for (auto i = 1; i <= constant::kMaxCluster; ++i) {
-		std::string topic = std::string("ClusterState") + std::to_string(i);
-		socketStateSub_.setsockopt(ZMQ_SUBSCRIBE, topic.c_str(), topic.size());
-	}
-	socketStateSub_.setsockopt(ZMQ_UNSUBSCRIBE, clusterName_.c_str(), clusterName_.size());
 }
 void ClusterState::runTask() {
 	LOG_0 << "hi, this is cluster state" << clusterName_ << " thread.\n";
-	const int kPollTimeout = 1000;
-	const int kPollTimeoutEach = kPollTimeout / constant::kMaxCluster;
-	std::chrono::high_resolution_clock::time_point t1, t2;
-
-	// poll
-	zmq::pollitem_t pollItems[] = { {socketStateSub_, 0, ZMQ_POLLIN,0} };
 
 	while (!stopTask_) {
 		LOG_0 << SEPERATOR << "\n";
 
-		// recv information
-		ClusterStateInfo oneClusterStateInfo;
-		zmq::message_t oneClusterStateInfoMsg;
+		// send cluster state infomation msg 
+		zmq::message_t stateInfoMsg(sizeof(ClusterStateInfo));
+		clusterStateInfo_.readyWorkerCount = MiscHelper::randomInt();
+		memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo));
+		socketPush_.send(stateInfoMsg, zmq::send_flags::none);
+		LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
 
-		// poll on sub socket with timeout kPollTimeout ms
-		zmq::poll(pollItems, 1, kPollTimeout);
-
-		// if data polled
-		if (pollItems[0].revents & ZMQ_POLLIN) {
-			socketStateSub_.recv(oneClusterStateInfoMsg, zmq::recv_flags::none);
-			memcpy(&oneClusterStateInfo, oneClusterStateInfoMsg.data(), oneClusterStateInfoMsg.size());
-			LOG_0 << clusterName_ << " got:" << oneClusterStateInfo.clusterName
-				<< ", ready worker count:" << oneClusterStateInfo.readyWorkerCount << "\n";
-		}
-		else {
-			// send msg if no data 
-			zmq::message_t stateInfoMsg(sizeof(ClusterStateInfo));
-			clusterStateInfo_.readyWorkerCount = MiscHelper::randomInt();
-			memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo));
-			socketStatePub_.send(stateInfoMsg, zmq::send_flags::none);
-			LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
-		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_1000ms));
 	}
 }
 /* N publisher nodes publish N messages and 1 subscriber subscribes 1 message each time.
@@ -128,7 +90,7 @@ void ClusterState::runTask() {
 //		zmq::message_t stateInfoMsg(sizeof(ClusterStateInfo));
 //		clusterStateInfo_.readyWorkerCount = MiscHelper::randomInt();
 //		memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo));
-//		socketStatePub_.send(stateInfoMsg, zmq::send_flags::none);
+//		socketPush_.send(stateInfoMsg, zmq::send_flags::none);
 //		LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
 //	}
 //}

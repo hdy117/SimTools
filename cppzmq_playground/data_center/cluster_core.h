@@ -37,15 +37,17 @@ struct TaskResult {
 };
 
 struct ClusterStateInfo {
-	const static uint32_t kMaxNameSize = 256;
+	const static uint32_t kMaxNameSize = 64;
 	char clusterName[kMaxNameSize] = {'\0'};
 	uint32_t readyWorkerCount = 0;
 };
 
+using ClusterStateInfoPtr = std::shared_ptr<ClusterStateInfo>;
+
 namespace constant {
-	const std::string kXPubPort("5556");
-	const std::string kXSubPort("5557");
+	const std::string kPullPort("5557");
 	const uint32_t kMaxCluster = 20;
+	const uint32_t kTimeout_1000ms = 1000;
 }
 
 class MessageHelper {
@@ -111,15 +113,20 @@ protected:
 };
 
 /**
- * @brief xpub and xsub proxy for cluster broker state
+ * @brief push/pull for cluster broker state
 */
 class ClusterStateProxy : public AsyncRun {
 public:
-	ClusterStateProxy(const std::string& xpubPort = constant::kXPubPort, const std::string& xsubPort = constant::kXSubPort);
+	ClusterStateProxy(const std::string& pullPort = constant::kPullPort);
 	virtual ~ClusterStateProxy();
+public:
+	void printClusterStateMap();
 protected:
 	virtual void runTask() override;
+protected:
+	void subscribe(const std::string& topicPrefix="ClusterState");
 private:
 	zmq::context_t context_;
-	zmq::socket_t socketXPub_, socketXSub_;
-};
+	zmq::socket_t socketPull_;
+	std::map<std::string, ClusterStateInfoPtr> clusterInfoMap_;
+}; 

@@ -1,7 +1,7 @@
 #include "cluster_state.h"
 
 int main(int argc, char *argv[]) {
-	FLAGS_logtostdout = 1;
+	FLAGS_logtostdout = 0;
 	FLAGS_v = 0;
 	FLAGS_log_dir = "./logs";
 	google::InitGoogleLogging(argv[0]);
