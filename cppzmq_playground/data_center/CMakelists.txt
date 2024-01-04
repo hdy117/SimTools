@@ -3,14 +3,15 @@ cmake_minimum_required(VERSION 3.14.0)
 project(router_request)
 set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(cluster_core ${root_dir}/cluster_state.cpp ${root_dir}/cluster_core.cpp 
+add_library(cluster_core ${root_dir}/cluster_state.cpp ${root_dir}/cluster_core.cpp
     ${root_dir}/cluster_core.h ${root_dir}/cluster_state.h
-    ${root_dir}/cluster_broker.cpp ${root_dir}/cluster_broker.h)
+    ${root_dir}/cluster_broker.cpp ${root_dir}/cluster_broker.h
+    ${root_dir}/super_broker.h ${root_dir}/super_broker.cpp)
 
 add_executable(cluster_state_test ${root_dir}/cluster_state_test.cpp)
-target_link_libraries(cluster_state_test cluster_core sim_msg sim_log ${lib_protobuf} ${lib_zmq} ${lib_glog})
+target_link_libraries(cluster_state_test cluster_core sim_log ${lib_zmq} ${lib_glog})
 
 add_executable(cluster_broker_test ${root_dir}/cluster_broker_test.cpp)
-target_link_libraries(cluster_broker_test cluster_core sim_msg sim_log ${lib_protobuf} ${lib_zmq} ${lib_glog})
+target_link_libraries(cluster_broker_test cluster_core sim_log ${lib_zmq} ${lib_glog})
 
 install(TARGETS cluster_state_test cluster_broker_test RUNTIME DESTINATION ${install_dir})

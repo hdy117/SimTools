@@ -2,6 +2,9 @@
 
 #include "cluster_core.h"
 
+class ClusterState;
+using ClusterStatePtr = std::shared_ptr<ClusterState>;
+
 class ClusterState : public AsyncRun{
 public:
 	ClusterState(const std::string& clusterName, const std::string& pullerIP = "127.0.0.1", 

@@ -8,10 +8,10 @@
 #include <queue>
 #include <random>
 #include <iomanip>
-
-#include "sim_log.h"
+#include <memory>
 
 #include "zmq.hpp"
+#include "sim_log.h"
 
 #if defined(_WIN32)
 #pragma comment(lib, "libzmq-mt-4_3_5.lib")
@@ -42,18 +42,35 @@ struct ClusterStateInfo {
 	uint32_t readyWorkerCount = 0;
 };
 
+class AsyncRun;
+class ClusterStateProxy;
+using AsyncRunPtr = std::shared_ptr<AsyncRun>;
 using ClusterStateInfoPtr = std::shared_ptr<ClusterStateInfo>;
+using ClusterStateProxyPtr = std::shared_ptr<ClusterStateProxy>;
 
 namespace constant {
+	// super broker IP
+	const std::string superBroker_IP("127.0.0.1");
+
 	// pull port to collect all cluster broker state in super broker
 	const std::string kPullPort("5557");
 
 	// local port of front and back end for client and worker in one cluster
-	const std::string kLocalFrontend("5558");
-	const std::string kLocalbackend("5559");
+	const std::string kLocal_Frontend("5558");
+	const std::string kLocal_backend("5559");
+
+	// super broker front and back end
+	const std::string kSuperBroker_Frontend("5560");
+	const std::string kSuperBroker_Backend("5561");
 
 	// max cluster number
 	const uint32_t kMaxCluster = 20;
+	
+	// client number in one cluster
+	const uint32_t kClientNum = 1000;
+
+	// worker number in one cluster
+	const uint32_t kWorkerNum = 1000;
 
 	// timeout while push cluster state in a cluster broker
 	const uint32_t kTimeout_1000ms = 1000;
@@ -61,6 +78,16 @@ namespace constant {
 	// this id is used by worker to notify broker that it is alive at initial state
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");
 }
+
+// cluster configuration
+struct ClusterCfg {
+	uint32_t workerNum=constant::kWorkerNum;
+	uint32_t clientNum=constant::kClientNum;
+	std::string superBroker_IP = superBroker_IP;
+	std::string statePullPort = constant::kPullPort;
+	std::string superBrokerFrontend = constant::kSuperBroker_Frontend;
+	std::string superBrokerBackend = constant::kSuperBroker_Backend;
+};
 
 class MessageHelper {
 public:
@@ -95,9 +122,6 @@ public:
 	NonCopy(const NonCopy&) = delete;
 	NonCopy& operator=(const NonCopy&) = delete;
 };
-
-class AsyncRun;
-using AsyncRunPtr = std::shared_ptr<AsyncRun>;
 
 /**
  * @brief async task, user should implement virtual void runTask() = 0
@@ -136,6 +160,7 @@ public:
 protected:
 	virtual void runTask() override;
 protected:
+	[[deprecated("do not use this function since this class use push/pull instead of pub/sub")]]
 	void subscribe(const std::string& topicPrefix="ClusterState");
 private:
 	zmq::context_t context_;

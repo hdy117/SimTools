@@ -202,3 +202,12 @@ void LocalBalanceBroker::runTask() {
 		}
 	}
 }
+
+////////////////////////////////////////////////////////
+
+OneCluster::OneCluster(const ClusterCfg& clusterCfg) {
+}
+OneCluster::~OneCluster() {
+}
+void OneCluster::runTask() {
+}
