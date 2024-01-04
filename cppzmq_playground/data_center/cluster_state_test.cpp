@@ -2,7 +2,7 @@
 #include "super_broker.h"
 
 int main(int argc, char *argv[]) {
-	FLAGS_logtostderr = 0;
+	FLAGS_logtostderr = 1;
 	FLAGS_v = 0;
 	FLAGS_log_dir = "./logs";
 	google::InitGoogleLogging(argv[0]);

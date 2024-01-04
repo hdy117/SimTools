@@ -84,6 +84,7 @@ void Worker::runTask() {
 	while (!stopTask_) {
 		LOG_0 << SEPERATOR << "\n";
 		processImp();
+		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_ClientRep));
 	}
 }
 void Worker::processImp() {
@@ -114,18 +115,23 @@ void Worker::processImp() {
 	socket_.send(taskResultMsg, zmq::send_flags::none);
 
 	workCounter_++;
-	LOG_0 << "worker | id:" << id_ << " counter:" << workCounter_.load();
+	LOG_0 << "worker | id:" << id_ << " processed task counter:" << workCounter_.load();
 }
 
 ////////////////////////////////////////////////////////
 
 LocalBalanceBroker::LocalBalanceBroker(const std::string& portFront, const std::string& portBack) {
+	readyWorkerCount_ = 0;
+
 	portFront_ = portFront;
 	portBack_ = portBack;
 
 	context_ = zmq::context_t(1);
 	socketFrontEnd_ = zmq::socket_t(context_, zmq::socket_type::router);
 	socketBackEnd_ = zmq::socket_t(context_, zmq::socket_type::router);
+
+	// recv task high water mark
+	socketFrontEnd_.setsockopt(ZMQ_RCVHWM, 1000);
 
 	socketFrontEnd_.bind("tcp://0.0.0.0:" + portFront_);
 	socketBackEnd_.bind("tcp://0.0.0.0:" + portBack_);
@@ -149,6 +155,9 @@ void LocalBalanceBroker::runTask() {
 			pollItems[i].fd = 0;
 			pollItems[i].revents = 0;
 		}
+
+		// update ready worker count
+		readyWorkerCount_ = static_cast<uint32_t>(workReadyQueue_.size());
 
 		// wait worker to be ready
 		if (workReadyQueue_.empty()) {
@@ -209,7 +218,13 @@ void LocalBalanceBroker::runTask() {
 
 			workReadyQueue_.pop();
 		}
+
+		// update ready worker count
+		readyWorkerCount_ = static_cast<uint32_t>(workReadyQueue_.size());
 	}
+}
+uint32_t LocalBalanceBroker::getReadyWorkerCount() {
+	return readyWorkerCount_;
 }
 
 ////////////////////////////////////////////////////////
@@ -225,6 +240,9 @@ OneCluster::OneCluster(const ClusterCfg& clusterCfg) {
 
 	// local load balancer
 	localBalancer_ = std::make_shared<LocalBalanceBroker>(clusterCfg_.localFrontend, clusterCfg_.localBackend);
+
+	// this cluster state reporter
+	clusterState_ = std::make_shared<ClusterState>(clusterName_);
 }
 OneCluster::~OneCluster() {
 	for (auto& client : clients_) {
@@ -235,21 +253,38 @@ OneCluster::~OneCluster() {
 		if (worker.get() != nullptr)worker->wait();
 	}
 	localBalancer_->wait();
+	clusterState_->wait();
 }
 void OneCluster::runTask() {
-	localBalancer_->startTask();
-
-	for (auto& client : clients_) {
-		if (client) client->startTask();
+	// start local balancer task
+	{
+		localBalancer_->startTask();
 	}
 
-	for (auto& worker : workers_) {
-		if (worker) worker->startTask();
+	// start cluster state task
+	{
+		clusterState_->startTask(); 
 	}
 
+	// start local clients and workers
+	{
+		for (auto& client : clients_) {
+			if (client) client->startTask();
+		}
+
+		for (auto& worker : workers_) {
+			if (worker) worker->startTask();
+		}
+	}
+
+	// block waiting
 	while (!stopTask_) {
+		LOG_0 << clusterName_ << " has ready worker count:" << getReadyWorkerCount();
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
+}
+uint32_t OneCluster::getReadyWorkerCount() {
+	return localBalancer_->getReadyWorkerCount();
 }
 
 ////////////////////////////////////////////////////////

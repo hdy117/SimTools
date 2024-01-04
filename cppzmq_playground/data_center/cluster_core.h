@@ -20,9 +20,14 @@
 #pragma comment(lib, "gflags.lib")
 #endif
 
+enum TaskProcessState {
+	TASK_SUBMITTED = 0, TASK_PROCESSED, TASK_PROCESSED_WITH_ERROR, TASK_REJECTED
+};
+
 struct TaskMeta {
 	uint64_t taskID;
 	uint64_t taskType;
+	TaskProcessState taskProcessState;
 };
 
 struct Task {
@@ -51,7 +56,7 @@ using ClusterStateBrokerPtr = std::shared_ptr<ClusterStateBroker>;
 
 namespace constant {
 	// super broker IP
-	const std::string superBroker_IP("127.0.0.1");
+	const std::string kSuperBroker_IP("127.0.0.1");
 
 	// pull port to collect all cluster broker state in super broker
 	const std::string kPullPort("5557");
@@ -81,7 +86,10 @@ namespace constant {
 	const uint32_t kTimeout_1000ms = 1000;
 
 	// timeout value for client
-	const uint32_t kTimeout_ClientReq = 100;
+	const uint32_t kTimeout_ClientReq = 1;
+
+	// timeout value for worker
+	const uint32_t kTimeout_ClientRep = 1;
 
 	// this id is used by worker to notify broker that it is alive at initial state
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");

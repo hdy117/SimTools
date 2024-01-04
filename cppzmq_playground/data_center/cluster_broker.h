@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cluster_core.h"
+#include "cluster_state.h"
 
 class Client;
 using ClientPtr = std::shared_ptr<Client>;
@@ -48,6 +49,8 @@ public:
 	LocalBalanceBroker(const std::string& portFront = constant::kLocal_Frontend_0, 
 		const std::string& portBack = constant::kLocal_backend_0);
 	virtual ~LocalBalanceBroker();
+public:
+	uint32_t getReadyWorkerCount();
 protected:
 	virtual void runTask() override;
 private:
@@ -55,6 +58,7 @@ private:
 	zmq::socket_t socketFrontEnd_, socketBackEnd_;
 	std::string portFront_, portBack_;
 	std::queue<std::string> workReadyQueue_;
+	std::atomic<uint32_t> readyWorkerCount_;
 };
 
 /**
@@ -69,6 +73,7 @@ public:
 	std::vector<WorkerPtr>& getWorkers() { return workers_; }
 	std::vector<ClientPtr>& getClients() { return clients_; }
 	const std::string& getClusterName() { return clusterName_; }
+	uint32_t getReadyWorkerCount();
 protected:
 	virtual void runTask() override;
 private:
@@ -77,6 +82,7 @@ private:
 	std::vector<ClientPtr> clients_;
 	std::string clusterName_;
 	LocalBalanceBrokerPtr localBalancer_;
+	ClusterStatePtr clusterState_;
 };
 
 class ClusterHelper {

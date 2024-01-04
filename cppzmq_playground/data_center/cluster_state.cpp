@@ -30,11 +30,17 @@ void ClusterState::runTask() {
 
 		// send cluster state infomation msg 
 		zmq::message_t stateInfoMsg(sizeof(ClusterStateInfo));
-		clusterStateInfo_.readyWorkerCount = MiscHelper::randomInt();
-		memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo));
+		{
+			std::lock_guard<std::mutex> guard(clusterStateLock_);
+			memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo)); 
+		}
 		socketPush_.send(stateInfoMsg, zmq::send_flags::none);
 		LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_1000ms));
 	}
+}
+void ClusterState::setClusterState(const ClusterStateInfo& stateInfo) {
+	std::lock_guard<std::mutex> guard(clusterStateLock_);
+	clusterStateInfo_.readyWorkerCount = stateInfo.readyWorkerCount;
 }
