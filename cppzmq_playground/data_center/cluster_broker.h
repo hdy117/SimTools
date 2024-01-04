@@ -13,7 +13,7 @@ using LocalBalanceBrokerPtr = std::shared_ptr<LocalBalanceBroker>;
 
 class Client : public AsyncRun{
 public:
-	explicit Client(const std::string& id, const std::string& port = constant::kLocal_Frontend);
+	explicit Client(const std::string& id, const std::string& port = constant::kLocal_Frontend_0);
 	virtual ~Client();
 public:
 	const std::string& getID() { return id_; }
@@ -29,7 +29,7 @@ private:
 
 class Worker:public AsyncRun {
 public:
-	explicit Worker(const std::string& id, const std::string& port = constant::kLocal_backend);
+	explicit Worker(const std::string& id, const std::string& port = constant::kLocal_backend_0);
 	virtual ~Worker();
 public:
 	const std::string& getID() { return id_; }
@@ -45,8 +45,8 @@ private:
 
 class LocalBalanceBroker : public AsyncRun{
 public:
-	LocalBalanceBroker(const std::string& portFront = constant::kLocal_Frontend, 
-		const std::string& portBack = constant::kLocal_backend);
+	LocalBalanceBroker(const std::string& portFront = constant::kLocal_Frontend_0, 
+		const std::string& portBack = constant::kLocal_backend_0);
 	virtual ~LocalBalanceBroker();
 protected:
 	virtual void runTask() override;
@@ -64,8 +64,22 @@ class OneCluster : public AsyncRun {
 public:
 	explicit OneCluster(const ClusterCfg& clusterCfg);
 	virtual ~OneCluster();
+public:
+	const ClusterCfg& getClusterCfg() { return clusterCfg_; }
+	std::vector<WorkerPtr>& getWorkers() { return workers_; }
+	std::vector<ClientPtr>& getClients() { return clients_; }
+	const std::string& getClusterName() { return clusterName_; }
 protected:
 	virtual void runTask() override;
 private:
 	ClusterCfg clusterCfg_;
+	std::vector<WorkerPtr> workers_;
+	std::vector<ClientPtr> clients_;
+	std::string clusterName_;
+	LocalBalanceBrokerPtr localBalancer_;
+};
+
+class ClusterHelper {
+public:
+	void buildCluster(OneCluster& cluster);
 };

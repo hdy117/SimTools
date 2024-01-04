@@ -28,7 +28,7 @@ void Client::genTask(Task& task) {
 	task.meta.taskType = 1;
 }
 void Client::runTask() {
-	while(!stopTask_) {
+	while (!stopTask_) {
 		sendRequest();
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
@@ -206,8 +206,56 @@ void LocalBalanceBroker::runTask() {
 ////////////////////////////////////////////////////////
 
 OneCluster::OneCluster(const ClusterCfg& clusterCfg) {
+	// clients and workers
+	clients_.reserve(constant::kClientNum);
+	workers_.reserve(constant::kWorkerNum);
+
+	// cluster config
+	clusterCfg_ = clusterCfg;
+	clusterName_ = clusterCfg_.clusterName;
+
+	// local load balancer
+	localBalancer_ = std::make_shared<LocalBalanceBroker>(clusterCfg_.localFrontend, clusterCfg_.localBackend);
+	localBalancer_->startTask();
 }
 OneCluster::~OneCluster() {
+	for (auto& client : clients_) {
+		if (client.get() != nullptr)client->wait();
+	}
+
+	for (auto& worker : workers_) {
+		if (worker.get() != nullptr)worker->wait();
+	}
+	localBalancer_->wait();
 }
 void OneCluster::runTask() {
+	for (auto& client : clients_) {
+		if (client.get() != nullptr)client->startTask();
+	}
+
+	for (auto& worker : workers_) {
+		if (worker.get() != nullptr)worker->startTask();
+	}
+
+	while (!stopTask_) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+}
+
+////////////////////////////////////////////////////////
+
+void ClusterHelper::buildCluster(OneCluster& cluster) {
+	auto& clients = cluster.getClients();
+	auto& workers = cluster.getWorkers();
+	const auto& clusterCfg = cluster.getClusterCfg();
+
+	for (auto i = 0; i < clusterCfg.clientNum; ++i) {
+		std::string clientID = cluster.getClusterName() + std::string("::") + std::string("client::") + std::to_string(i);
+		clients.push_back(std::make_shared<Client>(clientID, constant::kLocal_Frontend_0));
+	}
+
+	for (auto i = 0; i < clusterCfg.workerNum; ++i) {
+		std::string workerID = cluster.getClusterName() + std::string("::") + std::string("client::") + std::to_string(i);
+		workers.push_back(std::make_shared<Worker>(workerID, constant::kLocal_backend_0));
+	}
 }

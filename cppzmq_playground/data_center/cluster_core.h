@@ -36,17 +36,18 @@ struct TaskResult {
 	double sum;
 };
 
+// information of cluster
 struct ClusterStateInfo {
-	const static uint32_t kMaxNameSize = 64;
+	const static uint32_t kMaxNameSize = 128;
 	char clusterName[kMaxNameSize] = {'\0'};
 	uint32_t readyWorkerCount = 0;
 };
 
 class AsyncRun;
-class ClusterStateProxy;
+class ClusterStateBroker;
 using AsyncRunPtr = std::shared_ptr<AsyncRun>;
 using ClusterStateInfoPtr = std::shared_ptr<ClusterStateInfo>;
-using ClusterStateProxyPtr = std::shared_ptr<ClusterStateProxy>;
+using ClusterStateBrokerPtr = std::shared_ptr<ClusterStateBroker>;
 
 namespace constant {
 	// super broker IP
@@ -56,8 +57,12 @@ namespace constant {
 	const std::string kPullPort("5557");
 
 	// local port of front and back end for client and worker in one cluster
-	const std::string kLocal_Frontend("5558");
-	const std::string kLocal_backend("5559");
+	const std::string kLocal_Frontend_0("55580");
+	const std::string kLocal_backend_0("55590");
+	const std::string kLocal_Frontend_1("55581");
+	const std::string kLocal_backend_1("55591");
+	const std::string kLocal_Frontend_2("55582");
+	const std::string kLocal_backend_2("55592");
 
 	// super broker front and back end
 	const std::string kSuperBroker_Frontend("5560");
@@ -79,14 +84,29 @@ namespace constant {
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");
 }
 
-// cluster configuration
-struct ClusterCfg {
-	uint32_t workerNum=constant::kWorkerNum;
-	uint32_t clientNum=constant::kClientNum;
+// super broker config
+struct SuperBrokerCfg {
 	std::string superBroker_IP = superBroker_IP;
 	std::string statePullPort = constant::kPullPort;
 	std::string superBrokerFrontend = constant::kSuperBroker_Frontend;
 	std::string superBrokerBackend = constant::kSuperBroker_Backend;
+};
+
+// cluster configuration
+struct ClusterCfg {
+	// name of cluster
+	std::string clusterName = std::string("Cluster");
+
+	// number of workers and clients in one cluster
+	uint32_t workerNum=constant::kWorkerNum;
+	uint32_t clientNum=constant::kClientNum;
+
+	// super broker ip and port info
+	SuperBrokerCfg superBrokerCfg;
+
+	// local load balance broker info
+	std::string localFrontend = constant::kLocal_Frontend_0;
+	std::string localBackend = constant::kLocal_backend_0;
 };
 
 class MessageHelper {
@@ -147,23 +167,3 @@ protected:
 	std::thread taskHandle_;
 	std::atomic_bool stopTask_;
 };
-
-/**
- * @brief push/pull for cluster broker state
-*/
-class ClusterStateProxy : public AsyncRun {
-public:
-	ClusterStateProxy(const std::string& pullPort = constant::kPullPort);
-	virtual ~ClusterStateProxy();
-public:
-	void printClusterStateMap();
-protected:
-	virtual void runTask() override;
-protected:
-	[[deprecated("do not use this function since this class use push/pull instead of pub/sub")]]
-	void subscribe(const std::string& topicPrefix="ClusterState");
-private:
-	zmq::context_t context_;
-	zmq::socket_t socketPull_;
-	std::map<std::string, ClusterStateInfoPtr> clusterInfoMap_;
-}; 

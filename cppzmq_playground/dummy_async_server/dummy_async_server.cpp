@@ -109,7 +109,7 @@ private:
 			}
 			else if(pollItems[0].revents & ZMQ_POLLIN) {
 				zmq::message_t msgReply;
-				socket_.recv(msgReply, zmq::recv_flags::none);
+				auto rc = socket_.recv(msgReply, zmq::recv_flags::none);
 				memcpy(&taskResult, msgReply.data(), msgReply.size());
 				LOG_0 << "client | got task:" << taskResult.meta.taskID << ", value:" << taskResult.sum << ".\n";
 			}
@@ -179,8 +179,8 @@ private:
 		// wait for task
 		zmq::message_t brokerIDMsg, clientIDMsg, taskMsg;
 		//socket_.recv(brokerIDMsg, zmq::recv_flags::none);
-		socket_.recv(clientIDMsg, zmq::recv_flags::none);
-		socket_.recv(taskMsg, zmq::recv_flags::none);
+		auto rc = socket_.recv(clientIDMsg, zmq::recv_flags::none);
+		rc = socket_.recv(taskMsg, zmq::recv_flags::none);
 
 		//std::string brokerID(static_cast<const char*>(brokerIDMsg.data()), brokerIDMsg.size() - 1);
 		std::string clientID(static_cast<const char*>(clientIDMsg.data()), clientIDMsg.size() - 1);
