@@ -5,9 +5,12 @@ set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(cluster_core ${root_dir}/cluster_state.cpp ${root_dir}/cluster_core.cpp 
     ${root_dir}/cluster_core.h ${root_dir}/cluster_state.h
-    ${root_dir}/cluster_broker.cpp)
+    ${root_dir}/cluster_broker.cpp ${root_dir}/cluster_broker.h)
 
 add_executable(cluster_state_test ${root_dir}/cluster_state_test.cpp)
 target_link_libraries(cluster_state_test cluster_core sim_msg sim_log ${lib_protobuf} ${lib_zmq} ${lib_glog})
 
-install(TARGETS cluster_state_test RUNTIME DESTINATION ${install_dir})
+add_executable(cluster_broker_test ${root_dir}/cluster_broker_test.cpp)
+target_link_libraries(cluster_broker_test cluster_core sim_msg sim_log ${lib_protobuf} ${lib_zmq} ${lib_glog})
+
+install(TARGETS cluster_state_test cluster_broker_test RUNTIME DESTINATION ${install_dir})

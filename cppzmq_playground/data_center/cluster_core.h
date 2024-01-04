@@ -45,9 +45,21 @@ struct ClusterStateInfo {
 using ClusterStateInfoPtr = std::shared_ptr<ClusterStateInfo>;
 
 namespace constant {
+	// pull port to collect all cluster broker state in super broker
 	const std::string kPullPort("5557");
+
+	// local port of front and back end for client and worker in one cluster
+	const std::string kLocalFrontend("5558");
+	const std::string kLocalbackend("5559");
+
+	// max cluster number
 	const uint32_t kMaxCluster = 20;
+
+	// timeout while push cluster state in a cluster broker
 	const uint32_t kTimeout_1000ms = 1000;
+
+	// this id is used by worker to notify broker that it is alive at initial state
+	const std::string globalConstID_ALIVE("WORKER_ALIVE");
 }
 
 class MessageHelper {
