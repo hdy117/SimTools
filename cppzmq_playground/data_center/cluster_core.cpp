@@ -22,7 +22,7 @@ bool MessageHelper::ZMQMsgToString(const zmq::message_t& msg,
 /////////////////////////////////////////////
 std::random_device MiscHelper::randDevice_;
 std::mt19937 MiscHelper::generator_(MiscHelper::randDevice_());
-std::uniform_int_distribution<> MiscHelper::distri_ = std::uniform_int_distribution<>(0, 10000);
+std::uniform_int_distribution<> MiscHelper::distri_ = std::uniform_int_distribution<>(0, 100);
 
 MiscHelper::MiscHelper() {
 }
@@ -32,5 +32,5 @@ int MiscHelper::randomInt() {
 	return distri_(generator_);
 }
 float MiscHelper::randomFloat() {
-	return randomInt() / 10000.0f;
+	return randomInt() / 100.0f;
 }

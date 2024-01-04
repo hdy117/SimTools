@@ -3,13 +3,40 @@
 SuperBroker::SuperBroker(const SuperBrokerCfg& superBrokerCfg) {
 	superBrokerCfg_ = superBrokerCfg;
 
-	clusterStateBroker_ = std::make_shared<ClusterStateBroker>(superBrokerCfg_.statePullPort);
+	// state puller
+	clusterStateBroker_ = std::make_shared<ClusterStateBroker>(superBrokerCfg_.pullState_Port);
+
+	// task port
+	context_ = zmq::context_t(1);
+	socketBackend_ = zmq::socket_t(context_, zmq::socket_type::router);
+	std::string taskAddr = "tcp://0.0.0.0:" + superBrokerCfg_.task_Port;
+	socketBackend_.bind(taskAddr);
+	LOG_0 << "super broker bind on task backend:" << taskAddr << "\n";
 }
 SuperBroker::~SuperBroker() {
 }
 void SuperBroker::runTask() {
-}
+	// start cluster state puller
+	clusterStateBroker_->startTask();
 
+	while (!stopTask_) {
+		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		// poll
+		zmq::pollitem_t pollItems[] = { {socketBackend_,0,ZMQ_POLLIN,0} };
+		zmq::poll(pollItems, 1, constant::kTimeout_10ms);
+
+		// if new task arrived
+		if (pollItems[0].revents & ZMQ_POLLIN) {
+			// recv from cluster
+			zmq::message_t clusterIDMsg, clientIDMsg, taskMsg;
+			auto rc = socketBackend_.recv(clusterIDMsg, zmq::recv_flags::none);
+			rc = socketBackend_.recv(clientIDMsg, zmq::recv_flags::none);
+			rc = socketBackend_.recv(taskMsg, zmq::recv_flags::none);
+
+			// 
+		}
+	}
+}
 
 ////////////////////////////////
 
@@ -28,11 +55,11 @@ ClusterStateBroker::~ClusterStateBroker() {
 }
 void ClusterStateBroker::runTask() {
 	LOG_0 << "hi, this is cluster state proxy thread.\n";
-	const int64_t kPollTimeout = 2;
+
 	while (!stopTask_) {
 		// poll on subscribe socket
 		zmq::pollitem_t pollItems[] = { {socketPull_, 0, ZMQ_POLLIN,0} };
-		zmq::poll(pollItems, 1, kPollTimeout);
+		zmq::poll(pollItems, 1, constant::kTimeout_1000ms);
 
 		if (pollItems[0].revents & ZMQ_POLLIN) {
 			// sub one cluster info message
@@ -56,12 +83,5 @@ void ClusterStateBroker::printClusterStateMap() {
 	for (const auto& pairClusterState : clusterInfoMap_) {
 		LOG_0 << "super-broker got: " << pairClusterState.second->clusterName
 			<< ", ready worker count:" << pairClusterState.second->readyWorkerCount << "\n";
-	}
-}
-void ClusterStateBroker::subscribe(const std::string& topicPrefix) {
-	// set subscribe and unsubscribe topics
-	for (auto i = 1; i <= constant::kMaxCluster; ++i) {
-		std::string topic = topicPrefix + std::to_string(i);
-		socketPull_.setsockopt(ZMQ_SUBSCRIBE, topic.c_str(), topic.size());
 	}
 }

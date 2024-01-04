@@ -12,15 +12,12 @@ using SuperBrokerPtr = std::shared_ptr<SuperBroker>;
 */
 class ClusterStateBroker : public AsyncRun {
 public:
-	ClusterStateBroker(const std::string& pullPort = constant::kPullPort);
+	ClusterStateBroker(const std::string& pullPort = constant::kSuperBroker_PullStatePort);
 	virtual ~ClusterStateBroker();
 public:
 	void printClusterStateMap();
 protected:
 	virtual void runTask() override;
-protected:
-	[[deprecated("do not use this function since this class use push/pull instead of pub/sub")]]
-	void subscribe(const std::string& topicPrefix = "ClusterState");
 private:
 	zmq::context_t context_;
 	zmq::socket_t socketPull_;
@@ -39,4 +36,6 @@ protected:
 private:
 	ClusterStateBrokerPtr clusterStateBroker_;
 	SuperBrokerCfg superBrokerCfg_;
+	zmq::context_t context_;
+	zmq::socket_t socketBackend_;
 };

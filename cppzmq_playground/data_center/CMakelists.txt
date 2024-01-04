@@ -11,7 +11,10 @@ add_library(cluster_core ${root_dir}/cluster_state.cpp ${root_dir}/cluster_core.
 add_executable(cluster_state_test ${root_dir}/cluster_state_test.cpp)
 target_link_libraries(cluster_state_test cluster_core sim_log ${lib_zmq} ${lib_glog})
 
-add_executable(cluster_broker_test ${root_dir}/cluster_broker_test.cpp)
-target_link_libraries(cluster_broker_test cluster_core sim_log ${lib_zmq} ${lib_glog})
+add_executable(cluster_main ${root_dir}/cluster_main.cpp)
+target_link_libraries(cluster_main cluster_core sim_log ${lib_zmq} ${lib_glog})
 
-install(TARGETS cluster_state_test cluster_broker_test RUNTIME DESTINATION ${install_dir})
+add_executable(super_broker_main ${root_dir}/super_broker_main.cpp)
+target_link_libraries(super_broker_main cluster_core sim_log ${lib_zmq} ${lib_glog})
+
+install(TARGETS cluster_state_test cluster_main super_broker_main RUNTIME DESTINATION ${install_dir})

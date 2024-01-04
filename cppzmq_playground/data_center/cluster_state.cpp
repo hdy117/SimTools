@@ -1,6 +1,6 @@
 #include "cluster_state.h"
 
-ClusterState::ClusterState(const std::string& clusterName, 
+ClusterStateReporter::ClusterStateReporter(const std::string& clusterName,
 	const std::string& pullerIP, const std::string& pullPort) {
 	LOG_0 << SEPERATOR << "\n";
 
@@ -17,30 +17,42 @@ ClusterState::ClusterState(const std::string& clusterName,
 	socketPush_ = zmq::socket_t(context_, zmq::socket_type::push);
 	socketPush_.connect(subAddr);
 	LOG_0 << clusterName << " push connect to :" << subAddr << ".\n";
+
+	socketFe_ = zmq::socket_t(context_, zmq::socket_type::pair);
+	socketBe_ = zmq::socket_t(context_, zmq::socket_type::pair);
+
+	// it's ok, each peer can initiate sending action.
+	// in this case, socketFe_ initiate sending action
+	socketBe_.connect("inproc://state_updated");
+	socketFe_.bind("inproc://state_updated");
 }
-ClusterState::~ClusterState() {
+ClusterStateReporter::~ClusterStateReporter() {
 	socketPush_.close();
 	LOG_0 << "cluster " << clusterName_ << " quit.\n";
 }
-void ClusterState::runTask() {
-	LOG_0 << "hi, this is cluster state" << clusterName_ << " thread.\n";
+void ClusterStateReporter::runTask() {
+	LOG_0 << "hi, this is cluster state:" << clusterName_ << " thread.\n";
 
 	while (!stopTask_) {
 		LOG_0 << SEPERATOR << "\n";
 
-		// send cluster state infomation msg 
-		zmq::message_t stateInfoMsg(sizeof(ClusterStateInfo));
-		{
-			std::lock_guard<std::mutex> guard(clusterStateLock_);
-			memcpy(stateInfoMsg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo)); 
-		}
-		socketPush_.send(stateInfoMsg, zmq::send_flags::none);
-		LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
+		// poll
+		zmq::pollitem_t pollItems[] = { {socketBe_,0,ZMQ_POLLIN,0} };
+		zmq::poll(pollItems, 1, constant::kTimeout_1000ms);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_1000ms));
+		// if new cluster state info arrived
+		if (pollItems[0].revents & ZMQ_POLLIN) {
+			// forward cluster state infomation msg to super broker 
+			zmq::message_t msg;
+			auto rc = socketBe_.recv(msg, zmq::recv_flags::none);
+			socketPush_.send(msg, zmq::send_flags::none);
+			//LOG_0 << clusterStateInfo_.clusterName << " ready worker count:" << clusterStateInfo_.readyWorkerCount << "\n";
+		}
 	}
 }
-void ClusterState::setClusterState(const ClusterStateInfo& stateInfo) {
-	std::lock_guard<std::mutex> guard(clusterStateLock_);
+void ClusterStateReporter::setClusterState(const ClusterStateInfo& stateInfo) {
+	zmq::message_t msg(sizeof(ClusterStateInfo));
 	clusterStateInfo_.readyWorkerCount = stateInfo.readyWorkerCount;
+	memcpy(msg.data(), &clusterStateInfo_, sizeof(ClusterStateInfo));
+	socketFe_.send(msg, zmq::send_flags::none);
 }

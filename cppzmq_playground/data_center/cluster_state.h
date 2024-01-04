@@ -2,14 +2,14 @@
 
 #include "cluster_core.h"
 
-class ClusterState;
-using ClusterStatePtr = std::shared_ptr<ClusterState>;
+class ClusterStateReporter;
+using ClusterStateReporterPtr = std::shared_ptr<ClusterStateReporter>;
 
-class ClusterState : public AsyncRun{
+class ClusterStateReporter : public AsyncRun{
 public:
-	ClusterState(const std::string& clusterName, const std::string& pullerIP = constant::kSuperBroker_IP, 
-		const std::string& pullPort = constant::kPullPort);
-	virtual ~ClusterState();
+	ClusterStateReporter(const std::string& clusterName, const std::string& pullerIP = constant::kSuperBroker_IP, 
+		const std::string& pullPort = constant::kSuperBroker_PullStatePort);
+	virtual ~ClusterStateReporter();
 protected:
 	virtual void runTask() override;
 public:
@@ -17,9 +17,15 @@ public:
 	void setClusterState(const ClusterStateInfo& stateInfo);
 private:
 	zmq::context_t context_;
+	// socket for inter-thread communication, socketFe_ is main thread
+	zmq::socket_t socketFe_;
+	// socket for inter-thread communication, socketBe_ is backend thread
+	zmq::socket_t socketBe_;
+	// push peer with puller in super broker
 	zmq::socket_t socketPush_;
+	// puller ip and port in super broker
 	std::string pullerIP_, pullPort_;
+	// cluster name and state info
 	std::string clusterName_;
 	ClusterStateInfo clusterStateInfo_;
-	std::mutex clusterStateLock_;
 };

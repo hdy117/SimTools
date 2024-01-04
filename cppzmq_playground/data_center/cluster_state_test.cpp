@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
 	FLAGS_log_dir = "./logs";
 	google::InitGoogleLogging(argv[0]);
 
-	ClusterState cs1("ClusterState1"), cs2("ClusterState2"), cs3("ClusterState3");
+	ClusterStateReporter cs1("ClusterState1"), cs2("ClusterState2"), cs3("ClusterState3");
 	ClusterStateBroker csProxy;
 
 	csProxy.startTask();

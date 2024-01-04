@@ -14,7 +14,7 @@ using LocalBalanceBrokerPtr = std::shared_ptr<LocalBalanceBroker>;
 
 class Client : public AsyncRun{
 public:
-	explicit Client(const std::string& id, const std::string& port = constant::kLocal_Frontend_0);
+	explicit Client(const std::string& id, const std::string& port = constant::kLocal_Frontend[0]);
 	virtual ~Client();
 public:
 	const std::string& getID() { return id_; }
@@ -30,13 +30,13 @@ private:
 
 class Worker:public AsyncRun {
 public:
-	explicit Worker(const std::string& id, const std::string& port = constant::kLocal_backend_0);
+	explicit Worker(const std::string& id, const std::string& port = constant::kLocal_backend[0]);
 	virtual ~Worker();
 public:
 	const std::string& getID() { return id_; }
 protected:
 	virtual void runTask() override;
-	void processImp();
+	void process();
 private:
 	zmq::context_t context_;
 	zmq::socket_t socket_;
@@ -46,18 +46,28 @@ private:
 
 class LocalBalanceBroker : public AsyncRun{
 public:
-	LocalBalanceBroker(const std::string& portFront = constant::kLocal_Frontend_0, 
-		const std::string& portBack = constant::kLocal_backend_0);
+	LocalBalanceBroker(zmq::context_t* context, const std::string& portFront = constant::kLocal_Frontend[0],
+		const std::string& portBack = constant::kLocal_backend[0]);
 	virtual ~LocalBalanceBroker();
 public:
 	uint32_t getReadyWorkerCount();
 protected:
 	virtual void runTask() override;
 private:
-	zmq::context_t context_;
-	zmq::socket_t socketFrontEnd_, socketBackEnd_;
+	// contect from cluster
+	zmq::context_t* context_;
+	// socket to communicate with local client
+	zmq::socket_t socketFrontEnd_; 
+	// socket to communicate with local worker
+	zmq::socket_t socketBackEnd_;
+	// socket to communicate with socketFrontEnd_ and socketCloudFe_
+	zmq::socket_t socketLocalFe_;
+	// port for local client and worker
 	std::string portFront_, portBack_;
+	// queue of ready workers, used for local load balance
 	std::queue<std::string> workReadyQueue_;
+	// ready worker counter, used to be reported to super broker, 
+	// so that super broker can router tasks to this cluster
 	std::atomic<uint32_t> readyWorkerCount_;
 };
 
@@ -75,14 +85,28 @@ public:
 	const std::string& getClusterName() { return clusterName_; }
 	uint32_t getReadyWorkerCount();
 protected:
+	/**
+	 * @brief forward task to super broker or reply to client
+	*/
+	void cloudTaskRouting();
+protected:
+	/**
+	 * @brief forward task and reply between local cluster or super broker
+	*/
 	virtual void runTask() override;
 private:
+	zmq::context_t context_;
+	// socket to communicate with socketFrontEnd_
+	zmq::socket_t socketCloudFe_;
+	// socket to communicate with super broker
+	zmq::socket_t socketCloudBe_;
 	ClusterCfg clusterCfg_;
 	std::vector<WorkerPtr> workers_;
 	std::vector<ClientPtr> clients_;
 	std::string clusterName_;
 	LocalBalanceBrokerPtr localBalancer_;
-	ClusterStatePtr clusterState_;
+	ClusterStateInfo stateInfo_;
+	ClusterStateReporterPtr clusterState_;
 };
 
 class ClusterHelper {

@@ -20,14 +20,14 @@
 #pragma comment(lib, "gflags.lib")
 #endif
 
-enum TaskProcessState {
-	TASK_SUBMITTED = 0, TASK_PROCESSED, TASK_PROCESSED_WITH_ERROR, TASK_REJECTED
+enum TaskDirection {
+	TASK_SUBMIT = 0, TASK_REPLY, TASK_REPLY_WITH_ERROR, TASK_REPLY_REJECTED
 };
 
 struct TaskMeta {
 	uint64_t taskID;
 	uint64_t taskType;
-	TaskProcessState taskProcessState;
+	TaskDirection taskDirection;
 };
 
 struct Task {
@@ -59,19 +59,13 @@ namespace constant {
 	const std::string kSuperBroker_IP("127.0.0.1");
 
 	// pull port to collect all cluster broker state in super broker
-	const std::string kPullPort("5557");
+	const std::string kSuperBroker_PullStatePort("55550");
+	// super broker front and back end
+	const std::string kSuperBroker_TaskPort("55560");
 
 	// local port of front and back end for client and worker in one cluster
-	const std::string kLocal_Frontend_0("55580");
-	const std::string kLocal_backend_0("55590");
-	const std::string kLocal_Frontend_1("55581");
-	const std::string kLocal_backend_1("55591");
-	const std::string kLocal_Frontend_2("55582");
-	const std::string kLocal_backend_2("55592");
-
-	// super broker front and back end
-	const std::string kSuperBroker_Frontend("5560");
-	const std::string kSuperBroker_Backend("5561");
+	const std::string kLocal_Frontend[] = { "55580", "55581", "55582" };
+	const std::string kLocal_backend[] = { "55590","55591","55592" };
 
 	// max cluster number
 	const uint32_t kMaxCluster = 20;
@@ -85,11 +79,14 @@ namespace constant {
 	// timeout while push cluster state in a cluster broker
 	const uint32_t kTimeout_1000ms = 1000;
 
-	// timeout value for client
-	const uint32_t kTimeout_ClientReq = 1;
+	// timeout 10 ms
+	const uint32_t kTimeout_10ms = 10;
 
-	// timeout value for worker
-	const uint32_t kTimeout_ClientRep = 1;
+	// timeout 1 ms
+	const uint32_t kTimeout_1ms = 1;
+
+	// timeout value for client
+	const uint32_t kTimeout_ClientReq = 10;
 
 	// this id is used by worker to notify broker that it is alive at initial state
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");
@@ -97,10 +94,9 @@ namespace constant {
 
 // super broker config
 struct SuperBrokerCfg {
-	std::string superBroker_IP = superBroker_IP;
-	std::string statePullPort = constant::kPullPort;
-	std::string superBrokerFrontend = constant::kSuperBroker_Frontend;
-	std::string superBrokerBackend = constant::kSuperBroker_Backend;
+	std::string ip = constant::kSuperBroker_IP;
+	std::string pullState_Port = constant::kSuperBroker_PullStatePort;
+	std::string task_Port = constant::kSuperBroker_TaskPort;
 };
 
 // cluster configuration
@@ -116,8 +112,8 @@ struct ClusterCfg {
 	SuperBrokerCfg superBrokerCfg;
 
 	// local load balance broker info
-	std::string localFrontend = constant::kLocal_Frontend_0;
-	std::string localBackend = constant::kLocal_backend_0;
+	std::string localFrontend = constant::kLocal_Frontend[0];
+	std::string localBackend = constant::kLocal_backend[0];
 };
 
 class MessageHelper {
