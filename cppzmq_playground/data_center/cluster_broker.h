@@ -81,5 +81,5 @@ private:
 
 class ClusterHelper {
 public:
-	void buildCluster(OneCluster& cluster);
+	static void buildCluster(OneCluster& cluster);
 };

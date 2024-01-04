@@ -72,13 +72,16 @@ namespace constant {
 	const uint32_t kMaxCluster = 20;
 	
 	// client number in one cluster
-	const uint32_t kClientNum = 1000;
+	const uint32_t kClientNum = 3;
 
 	// worker number in one cluster
-	const uint32_t kWorkerNum = 1000;
+	const uint32_t kWorkerNum = 3;
 
 	// timeout while push cluster state in a cluster broker
 	const uint32_t kTimeout_1000ms = 1000;
+
+	// timeout value for client
+	const uint32_t kTimeout_ClientReq = 100;
 
 	// this id is used by worker to notify broker that it is alive at initial state
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");
