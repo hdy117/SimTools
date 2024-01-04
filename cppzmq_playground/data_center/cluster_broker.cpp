@@ -28,9 +28,9 @@ void Client::genTask(Task& task) {
 	task.meta.taskType = 1;
 }
 void Client::runTask() {
-	for (auto i = 0; i < 3; ++i) {
+	while(!stopTask_) {
 		sendRequest();
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
 void Client::sendRequest() {
@@ -79,7 +79,6 @@ Worker::~Worker() {
 void Worker::runTask() {
 	while (!stopTask_) {
 		processImp();
-		std::this_thread::sleep_for(std::chrono::milliseconds(111));
 	}
 }
 void Worker::processImp() {
