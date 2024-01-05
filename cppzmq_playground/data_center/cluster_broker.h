@@ -58,11 +58,11 @@ protected:
 	/**
 	 * @brief route reply message from local worker
 	*/
-	void routeReply();
+	void routeLocalReply();
 	/**
 	 * @brief router request message from local client
 	*/
-	void routeRequest();
+	void routeLocalRequest();
 	/**
 	 * @brief route request or reply from super broker
 	*/

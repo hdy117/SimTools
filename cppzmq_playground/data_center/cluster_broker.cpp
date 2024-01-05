@@ -37,8 +37,8 @@ void Client::runTask() {
 void Client::sendRequest() {
 	// generate task
 	TaskMeta taskMeta;
-	TaskRequest task;
-	genTask(taskMeta, task);
+	TaskRequest taskReq;
+	genTask(taskMeta, taskReq);
 
 	// task meta info
 	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromID, id_);
@@ -48,11 +48,13 @@ void Client::sendRequest() {
 	// prepare task meta and request message
 	zmq::message_t metaMsg(sizeof(TaskMeta)), taskMsg(sizeof(TaskRequest));
 	memcpy(metaMsg.data(), &taskMeta, sizeof(TaskMeta));
-	memcpy(taskMsg.data(), &task, sizeof(TaskRequest));
+	memcpy(taskMsg.data(), &taskReq, sizeof(TaskRequest));
 
 	// send task meta and request
-	socket_.send(metaMsg, zmq::send_flags::none);
+	socket_.send(metaMsg, zmq::send_flags::sndmore);
 	socket_.send(taskMsg, zmq::send_flags::none);
+
+	LOG_0 << "client | id:" << id_ << ", sent fromID:" << taskMeta.taskAddr.fromID << ", taskID:" << taskMeta.taskID << "\n";
 
 	// wait for result
 	zmq::message_t taskResultMsg;
@@ -108,7 +110,8 @@ void Worker::runTask() {
 }
 void Worker::process() {
 	// task
-	TaskRequest task;
+	TaskMeta taskMeta;
+	TaskRequest taskReq;
 	TaskReply taskResult;
 
 	// wait for task
@@ -116,20 +119,20 @@ void Worker::process() {
 	auto rc = socket_.recv(metaMsg, zmq::recv_flags::none);
 	rc = socket_.recv(taskMsg, zmq::recv_flags::none);
 
-	TaskMeta taskMeta;
-	memcpy(&task, taskMsg.data(), taskMsg.size());
-
-	// properly set address, from this worker to proper client
-	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toID, id_);
-	MessageHelper::swapBuffer(taskMeta.taskAddr.fromID, taskMeta.taskAddr.toID);
-	taskMeta.taskDirection = TaskDirection::TASK_REPLY;
+	memcpy(&taskMeta, metaMsg.data(), metaMsg.size());
+	memcpy(&taskReq, taskMsg.data(), taskMsg.size());
 
 	LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << taskMeta.taskID << ", from " << taskMeta.taskAddr.fromID;
 
+	// update address
+	MessageHelper::swapBuffer(taskMeta.taskAddr.fromID, taskMeta.taskAddr.toID);
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromID, id_);
+	taskMeta.taskDirection = TaskDirection::TASK_REPLY;
+
 	// do work
 	taskResult.sum = 0.0;
-	for (auto i = 0; i < task.size; ++i) {
-		taskResult.sum += task.arr[i];
+	for (auto i = 0; i < taskReq.size; ++i) {
+		taskResult.sum += taskReq.arr[i];
 	}
 
 	// send result
@@ -195,12 +198,12 @@ void LocalBalanceBroker::runTask() {
 
 		// got a reply from worker
 		if (pollItems[0].revents & ZMQ_POLLIN) {
-			routeReply();
+			routeLocalReply();
 		}
 		
 		// if local task arrived, forward to local worker or super broker(another cluster)
 		if (pollItems[1].revents & ZMQ_POLLIN) {
-			routeRequest();
+			routeLocalRequest();
 		}
 
 		// if super broker reply something, forward to client
@@ -261,7 +264,7 @@ void LocalBalanceBroker::routeCloud() {
 		}
 	}
 }
-void LocalBalanceBroker::routeRequest() {
+void LocalBalanceBroker::routeLocalRequest() {
 	// if received a client task from frontend
 	zmq::message_t msgClientID, msgMeta, msgTask;
 	auto rc = socketFrontEnd_.recv(msgClientID, zmq::recv_flags::none);
@@ -271,9 +274,6 @@ void LocalBalanceBroker::routeRequest() {
 	// get task meta info
 	TaskMeta taskMeta;
 	memcpy(&taskMeta, msgMeta.data(), msgMeta.size());
-
-	// add cluster id to request, make sure it is capable with cluster
-	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
 
 	// forward task to local worker or super broker
 	if (workReadyQueue_.size() > 0) {
@@ -290,7 +290,13 @@ void LocalBalanceBroker::routeRequest() {
 		LOG_0 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
 			", task id:" << taskMeta.taskID << ", send to worker:" << workerID << "\n";
 
-		// forward to backend, msgWorkerID is necessary since socketBackEnd_ is a router
+		// update address
+		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
+		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, clusterName_);
+		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toID, workerID);
+		memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
+
+		// forward to backend
 		socketBackEnd_.send(msgWorkerID, zmq::send_flags::sndmore);
 		socketBackEnd_.send(msgMeta, zmq::send_flags::sndmore);
 		socketBackEnd_.send(msgTask, zmq::send_flags::none);
@@ -298,13 +304,17 @@ void LocalBalanceBroker::routeRequest() {
 	else {
 		LOG_0 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
 			", task id:" << taskMeta.taskID << ", send to super broker.\n";
+		
+		// update address
+		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
+
 		// forward to super broker
 		memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
 		socketCloudTask_.send(msgMeta, zmq::send_flags::sndmore);
 		socketCloudTask_.send(msgTask, zmq::send_flags::none);
 	}
 }
-void LocalBalanceBroker::routeReply() {
+void LocalBalanceBroker::routeLocalReply() {
 	// got something from worker, may be a signal of alive or reply of a task
 	zmq::message_t msgWorkerID, msgMeta, msgReply;
 	auto rc = socketBackEnd_.recv(msgWorkerID, zmq::recv_flags::none);
@@ -325,12 +335,13 @@ void LocalBalanceBroker::routeReply() {
 		return;
 	}
 
-	LOG_0 << "broker | got msg from worker:" << taskMeta.taskAddr.fromID << ", client ID:" << taskMeta.taskAddr.toID;
-
 	// set proper cluster id
 	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, clusterName_);
 	MessageHelper::swapBuffer(taskMeta.taskAddr.fromClusterID, taskMeta.taskAddr.toClusterID);
 	memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
+
+	LOG_0 << "broker | got msg from worker, fromID:" << taskMeta.taskAddr.fromID << ", toID:" << taskMeta.taskAddr.toID
+		<< ", fronClusterID:" << taskMeta.taskAddr.fromClusterID << ", toClusterID:" << taskMeta.taskAddr.toClusterID << "\n";
 
 	// route to local client or another cluster
 	if (clusterName_ == std::string(taskMeta.taskAddr.toClusterID)) {
@@ -340,7 +351,7 @@ void LocalBalanceBroker::routeReply() {
 
 		// send to local client
 		socketFrontEnd_.send(clientIDMsg, zmq::send_flags::sndmore);
-		socketFrontEnd_.send(msgMeta, zmq::send_flags::none);
+		socketFrontEnd_.send(msgMeta, zmq::send_flags::sndmore);
 		socketFrontEnd_.send(msgReply, zmq::send_flags::none);
 	}
 	else {
