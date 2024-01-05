@@ -7,7 +7,7 @@ ClusterStateReporter::ClusterStateReporter(const std::string& clusterName,
 	clusterName_ = clusterName;
 	pullerIP_ = pullerIP;
 
-	memcpy(clusterStateInfo_.clusterName, clusterName_.c_str(), clusterName_.size() + 1);
+	MessageHelper::copyStringToBuffer(clusterStateInfo_.clusterName, clusterName_);
 	clusterStateInfo_.readyWorkerCount = 0;
 
 	context_ = zmq::context_t(1);
@@ -16,7 +16,7 @@ ClusterStateReporter::ClusterStateReporter(const std::string& clusterName,
 	std::string subAddr = "tcp://" + pullerIP_ + ":" + pullPort_;
 	socketPush_ = zmq::socket_t(context_, zmq::socket_type::push);
 	socketPush_.connect(subAddr);
-	LOG_0 << clusterName << " push connect to :" << subAddr << ".\n";
+	LOG_0 << clusterName_ << " push connect to :" << subAddr << ".\n";
 
 	socketFe_ = zmq::socket_t(context_, zmq::socket_type::pair);
 	socketBe_ = zmq::socket_t(context_, zmq::socket_type::pair);
@@ -34,8 +34,6 @@ void ClusterStateReporter::runTask() {
 	LOG_0 << "hi, this is cluster state:" << clusterName_ << " thread.\n";
 
 	while (!stopTask_) {
-		LOG_0 << SEPERATOR << "\n";
-
 		// poll
 		zmq::pollitem_t pollItems[] = { {socketBe_,0,ZMQ_POLLIN,0} };
 		zmq::poll(pollItems, 1, constant::kTimeout_1000ms);

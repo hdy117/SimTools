@@ -2,86 +2,96 @@
 
 SuperBroker::SuperBroker(const SuperBrokerCfg& superBrokerCfg) {
 	superBrokerCfg_ = superBrokerCfg;
+	context_ = zmq::context_t(1);
 
 	// state puller
-	clusterStateBroker_ = std::make_shared<ClusterStateBroker>(superBrokerCfg_.pullState_Port);
+	std::string subAddr = "tcp://0.0.0.0:" + superBrokerCfg_.pullState_Port;
+	socketPull_ = zmq::socket_t(context_, zmq::socket_type::pull);
+	socketPull_.bind(subAddr);
+	LOG_0 << "super broker bind on state puller:" << subAddr << "\n";
 
 	// task port
-	context_ = zmq::context_t(1);
-	socketBackend_ = zmq::socket_t(context_, zmq::socket_type::router);
+	socketCloudTask_ = zmq::socket_t(context_, zmq::socket_type::router);
 	std::string taskAddr = "tcp://0.0.0.0:" + superBrokerCfg_.task_Port;
-	socketBackend_.bind(taskAddr);
+	socketCloudTask_.bind(taskAddr);
 	LOG_0 << "super broker bind on task backend:" << taskAddr << "\n";
 }
 SuperBroker::~SuperBroker() {
 }
 void SuperBroker::runTask() {
-	// start cluster state puller
-	clusterStateBroker_->startTask();
-
 	while (!stopTask_) {
-		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		// poll
-		zmq::pollitem_t pollItems[] = { {socketBackend_,0,ZMQ_POLLIN,0} };
-		zmq::poll(pollItems, 1, constant::kTimeout_10ms);
+		zmq::pollitem_t pollItems[] = { 
+			{socketPull_, 0, ZMQ_POLLIN,0}, 
+			{socketCloudTask_,0,ZMQ_POLLIN,0} 
+		};
+		zmq::poll(pollItems, 2, constant::kTimeout_10ms);
 
-		// if new task arrived
+		// if new cluster state arrived
 		if (pollItems[0].revents & ZMQ_POLLIN) {
-			// recv from cluster
-			zmq::message_t clusterIDMsg, clientIDMsg, taskMsg;
-			auto rc = socketBackend_.recv(clusterIDMsg, zmq::recv_flags::none);
-			rc = socketBackend_.recv(clientIDMsg, zmq::recv_flags::none);
-			rc = socketBackend_.recv(taskMsg, zmq::recv_flags::none);
-
-			// 
+			statePuller();
+		}
+		if (pollItems[1].revents & ZMQ_POLLIN) {
+			taskRouter();
 		}
 	}
 }
+void SuperBroker::statePuller() {
+	// sub one cluster info message
+	zmq::message_t clusterStateMsg;
+	auto rc = socketPull_.recv(clusterStateMsg, zmq::recv_flags::none);
 
-////////////////////////////////
+	// copy data from subscribed message
+	ClusterStateInfoPtr clusterStatePtr = std::make_shared<ClusterStateInfo>();
+	memcpy(clusterStatePtr.get(), clusterStateMsg.data(), clusterStateMsg.size());
 
-ClusterStateBroker::ClusterStateBroker(const std::string& pullPort) {
-	context_ = zmq::context_t(1);
+	// add to clusterInfoMap_
+	clusterInfoMap_[std::string(clusterStatePtr->clusterName)] = clusterStatePtr;
 
-	// bind to pull port
-	std::string subAddr = "tcp://0.0.0.0:" + pullPort;
-	socketPull_ = zmq::socket_t(context_, zmq::socket_type::pull);
-	socketPull_.bind(subAddr);
-	LOG_0 << "cluster state proxy bind on " << subAddr << "\n";
+	LOG_0 << "super-broker got: " << clusterStatePtr->clusterName
+		<< ", ready worker count:" << clusterStatePtr->readyWorkerCount << "\n";
 }
-ClusterStateBroker::~ClusterStateBroker() {
-	socketPull_.close();
-	context_.close();
-}
-void ClusterStateBroker::runTask() {
-	LOG_0 << "hi, this is cluster state proxy thread.\n";
+void SuperBroker::taskRouter() {
+	// recv task from cluster
+	zmq::message_t clusterIDMsg, metaMsg, taskPayloadMsg;
+	auto rc = socketCloudTask_.recv(clusterIDMsg, zmq::recv_flags::none);
+	rc = socketCloudTask_.recv(metaMsg, zmq::recv_flags::none);
+	rc = socketCloudTask_.recv(taskPayloadMsg, zmq::recv_flags::none);
 
-	while (!stopTask_) {
-		// poll on subscribe socket
-		zmq::pollitem_t pollItems[] = { {socketPull_, 0, ZMQ_POLLIN,0} };
-		zmq::poll(pollItems, 1, constant::kTimeout_1000ms);
+	// get task meta
+	TaskMeta taskMeta;
+	memcpy(&taskMeta, metaMsg.data(), metaMsg.size());
 
-		if (pollItems[0].revents & ZMQ_POLLIN) {
-			// sub one cluster info message
-			zmq::message_t clusterStateMsg;
-			auto rc = socketPull_.recv(clusterStateMsg, zmq::recv_flags::none);
+	// target cluster to route this task
+	std::string targetCluster;
 
-			// copy data from subscribed message
-			ClusterStateInfoPtr clusterStatePtr = std::make_shared<ClusterStateInfo>();
-			memcpy(clusterStatePtr.get(), clusterStateMsg.data(), clusterStateMsg.size());
+	if (taskMeta.taskDirection = TaskDirection::TASK_SUBMIT) {
+		// route this request to proper cluster
+		uint32_t maxCount = 0;
 
-			// add to clusterInfoMap_
-			clusterInfoMap_[std::string(clusterStatePtr->clusterName)] = clusterStatePtr;
+		// find proper cluster to route
+		for (auto& pair : clusterInfoMap_) {
+			targetCluster = pair.second->readyWorkerCount > maxCount ? pair.first : targetCluster;
+			maxCount = std::max(maxCount, pair.second->readyWorkerCount);
+		}
 
-			LOG_0 << "super-broker got: " << clusterStatePtr->clusterName
-				<< ", ready worker count:" << clusterStatePtr->readyWorkerCount << "\n";
+		if (targetCluster.empty()) {
+			LOG_ERROR << "can not find proper cluster to route request, from cluster:" << taskMeta.taskAddr.fromClusterID 
+				<< ", from client:" << taskMeta.taskAddr.fromID << ", request rejected.\n";
+			return;
 		}
 	}
-}
-void ClusterStateBroker::printClusterStateMap() {
-	// print cluster state array
-	for (const auto& pairClusterState : clusterInfoMap_) {
-		LOG_0 << "super-broker got: " << pairClusterState.second->clusterName
-			<< ", ready worker count:" << pairClusterState.second->readyWorkerCount << "\n";
+	else {
+		// route this reply to proper cluster
+		targetCluster = taskMeta.taskAddr.toClusterID;
 	}
+
+	// route
+	zmq::message_t toClusterIDMsg;
+	MessageHelper::stringToZMQMsg(toClusterIDMsg, targetCluster);
+
+	socketCloudTask_.send(toClusterIDMsg, zmq::send_flags::sndmore);
+	socketCloudTask_.send(metaMsg, zmq::send_flags::sndmore);
+	socketCloudTask_.send(taskPayloadMsg, zmq::send_flags::none);
 }
+

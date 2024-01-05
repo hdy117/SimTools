@@ -9,6 +9,7 @@
 #include <random>
 #include <iomanip>
 #include <memory>
+#include <algorithm>
 
 #include "zmq.hpp"
 #include "sim_log.h"
@@ -20,30 +21,55 @@
 #pragma comment(lib, "gflags.lib")
 #endif
 
+// max name size
+const uint32_t kMaxNameSize = 32;
+
 enum TaskDirection {
 	TASK_SUBMIT = 0, TASK_REPLY, TASK_REPLY_WITH_ERROR, TASK_REPLY_REJECTED
 };
 
+enum TaskType {
+	NormalTask = 0, ALIVE_SIGNAL
+};
+
+/**
+ * @brief address info of task, including cluster id and id of worker/client.
+ * very usefull while forwarding task to another cluster
+*/
+struct TaskAddr {
+	char fromClusterID[kMaxNameSize] = { '\0' };
+	char fromID[kMaxNameSize] = { '\0' };
+	char toClusterID[kMaxNameSize] = { '\0' };
+	char toID[kMaxNameSize] = { '\0' };
+};
+
+/**
+ * @brief meta info of a task
+*/
 struct TaskMeta {
-	uint64_t taskID;
-	uint64_t taskType;
-	TaskDirection taskDirection;
+	TaskAddr taskAddr;						// address info of a task
+	uint64_t taskID = 0;					// id of task
+	TaskType taskType = TaskType::NormalTask;						// 0:normal task, 1:Alive signal(used by client/worker to signal to cluster)
+	TaskDirection taskDirection = TaskDirection::TASK_SUBMIT;	// indicator if task is a request or reply(normal or with other information)
 };
 
-struct Task {
-	TaskMeta meta;
+/**
+ * @brief a request task
+*/
+struct TaskRequest {
 	const static size_t size = 1024;
-	double arr[Task::size];
+	double arr[TaskRequest::size] = {0.0};
 };
 
-struct TaskResult {
-	TaskMeta meta;
-	double sum;
+/**
+ * @brief a reply of task
+*/
+struct TaskReply {
+	double sum = 0.0;
 };
 
 // information of cluster
 struct ClusterStateInfo {
-	const static uint32_t kMaxNameSize = 128;
 	char clusterName[kMaxNameSize] = {'\0'};
 	uint32_t readyWorkerCount = 0;
 };
@@ -68,7 +94,7 @@ namespace constant {
 	const std::string kLocal_backend[] = { "55590","55591","55592" };
 
 	// max cluster number
-	const uint32_t kMaxCluster = 20;
+	const uint32_t kMaxCluster = 3;
 	
 	// client number in one cluster
 	const uint32_t kClientNum = 3;
@@ -90,6 +116,8 @@ namespace constant {
 
 	// this id is used by worker to notify broker that it is alive at initial state
 	const std::string globalConstID_ALIVE("WORKER_ALIVE");
+
+	const uint32_t kBufferSize_1024 = 1024;
 }
 
 // super broker config
@@ -105,8 +133,8 @@ struct ClusterCfg {
 	std::string clusterName = std::string("Cluster");
 
 	// number of workers and clients in one cluster
-	uint32_t workerNum=constant::kWorkerNum;
-	uint32_t clientNum=constant::kClientNum;
+	uint32_t workerNum = constant::kWorkerNum;
+	uint32_t clientNum = constant::kClientNum;
 
 	// super broker ip and port info
 	SuperBrokerCfg superBrokerCfg;
@@ -120,6 +148,8 @@ class MessageHelper {
 public:
 	static bool stringToZMQMsg(zmq::message_t& msg, const std::string& payload);
 	static bool ZMQMsgToString(const zmq::message_t& msg, std::string& str);
+	static void swapBuffer(char* buffer1, char* buffer2, uint32_t maxSize = kMaxNameSize);
+	static void copyStringToBuffer(char* buffer, const std::string& str, uint32_t maxBufferSize = kMaxNameSize);
 };
 
 /**

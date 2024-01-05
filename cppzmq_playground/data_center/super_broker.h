@@ -8,23 +8,6 @@ class SuperBroker;
 using SuperBrokerPtr = std::shared_ptr<SuperBroker>;
 
 /**
- * @brief push/pull for cluster broker state
-*/
-class ClusterStateBroker : public AsyncRun {
-public:
-	ClusterStateBroker(const std::string& pullPort = constant::kSuperBroker_PullStatePort);
-	virtual ~ClusterStateBroker();
-public:
-	void printClusterStateMap();
-protected:
-	virtual void runTask() override;
-private:
-	zmq::context_t context_;
-	zmq::socket_t socketPull_;
-	std::map<std::string, ClusterStateInfoPtr> clusterInfoMap_;
-};
-
-/**
  * @brief super broker
 */
 class SuperBroker : public AsyncRun {
@@ -33,9 +16,17 @@ public:
 	virtual ~SuperBroker();
 protected:
 	virtual void runTask() override;
+	void statePuller();
+	void taskRouter();
 private:
 	ClusterStateBrokerPtr clusterStateBroker_;
 	SuperBrokerCfg superBrokerCfg_;
 	zmq::context_t context_;
-	zmq::socket_t socketBackend_;
+
+	// task router
+	zmq::socket_t socketCloudTask_;
+
+	// pull cluster state info
+	zmq::socket_t socketPull_;
+	std::map<std::string, ClusterStateInfoPtr> clusterInfoMap_;
 };

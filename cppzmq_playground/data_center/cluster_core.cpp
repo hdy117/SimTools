@@ -19,6 +19,17 @@ bool MessageHelper::ZMQMsgToString(const zmq::message_t& msg,
 	return true;
 }
 
+void MessageHelper::swapBuffer(char* buffer1, char* buffer2, uint32_t maxSize) {
+	char tmpBuffer[constant::kBufferSize_1024] = { '\0' };
+	memcpy(tmpBuffer, buffer1, maxSize);
+	memcpy(buffer1, buffer2, maxSize);
+	memcpy(buffer2, tmpBuffer, maxSize);
+}
+void MessageHelper::copyStringToBuffer(char* buffer, const std::string& str, uint32_t maxBufferSize) {
+	memcpy(buffer, str.c_str(), str.size() + 1); 
+	buffer[maxBufferSize - 1] = '\0';
+}
+
 /////////////////////////////////////////////
 std::random_device MiscHelper::randDevice_;
 std::mt19937 MiscHelper::generator_(MiscHelper::randDevice_());

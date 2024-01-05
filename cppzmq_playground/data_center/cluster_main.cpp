@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
 
 	// glog init
 	FLAGS_v = 0;
-	FLAGS_logtostderr = 0;
+	FLAGS_logtostderr = 1;
 	FLAGS_log_dir = "./logs";
 	google::InitGoogleLogging(argv[0]);
 
