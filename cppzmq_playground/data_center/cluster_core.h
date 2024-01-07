@@ -97,14 +97,17 @@ namespace constant {
 	const uint32_t kMaxCluster = 3;
 	
 	// client number in one cluster
-	const uint32_t kClientNum = 3;
+	const uint32_t kClientNum = 10;
 
 	// worker number in one cluster
-	const uint32_t kWorkerNum = 3;
+	const uint32_t kWorkerNum = 5;
 
 	// timeout while push cluster state in a cluster broker
 	const uint32_t kTimeout_1000ms = 1000;
 
+	// timeout 100 ms
+	const uint32_t kTimeout_100ms = 100;
+	
 	// timeout 10 ms
 	const uint32_t kTimeout_10ms = 10;
 

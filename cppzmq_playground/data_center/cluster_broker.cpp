@@ -31,7 +31,7 @@ void Client::runTask() {
 	LOG_0 << id_ << " running.\n";
 	while (!stopTask_) {
 		sendRequest();
-		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_ClientReq));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_ClientReq));
 	}
 }
 void Client::sendRequest() {
@@ -54,7 +54,7 @@ void Client::sendRequest() {
 	socket_.send(metaMsg, zmq::send_flags::sndmore);
 	socket_.send(taskMsg, zmq::send_flags::none);
 
-	LOG_0 << "client | id:" << id_ << ", sent fromID:" << taskMeta.taskAddr.fromID << ", taskID:" << taskMeta.taskID << "\n";
+	LOG_1 << "client | id:" << id_ << ", sent fromID:" << taskMeta.taskAddr.fromID << ", taskID:" << taskMeta.taskID << "\n";
 
 	// wait for result
 	zmq::message_t taskResultMsg;
@@ -65,9 +65,24 @@ void Client::sendRequest() {
 	TaskMeta taskMetaRecv;
 	TaskReply taskReply;
 	memcpy(&taskMetaRecv, metaMsg.data(), metaMsg.size());
-	memcpy(&taskReply, taskResultMsg.data(), taskResultMsg.size());
-	LOG_0 << "client | id:" << id_ << ", sent taskID:" << taskMeta.taskID <<
-		", recv taskID:" << taskMetaRecv.taskID << " taskReply:" << taskReply.sum << ".\n";
+	if (taskMetaRecv.taskDirection == TaskDirection::TASK_REPLY) {
+		memcpy(&taskReply, taskResultMsg.data(), taskResultMsg.size());
+		LOG_0 << "client | id:" << id_ << ", sent taskID:" << taskMeta.taskID <<
+			", recv taskID:" << taskMetaRecv.taskID
+			<< ", fromClusterID:" << taskMetaRecv.taskAddr.fromClusterID
+			<< ", fromID:" << taskMetaRecv.taskAddr.fromID
+			<< ", taskReply:" << taskReply.sum << ".\n";
+	}
+	else {
+		LOG_0 << "client | id:" << id_ << ", sent taskID:" << taskMeta.taskID <<
+			", recv taskID:" << taskMetaRecv.taskID
+			<< ", fromClusterID:" << taskMetaRecv.taskAddr.fromClusterID
+			<< ", fromID:" << taskMetaRecv.taskAddr.fromID
+			<< ", rejected.\n";
+
+		// sleep for 1000ms if this request is rejected.
+		std::this_thread::sleep_for(std::chrono::milliseconds(constant::kTimeout_1000ms));
+	}
 }
 
 ////////////////////////////////////////////////////////
@@ -106,6 +121,7 @@ void Worker::runTask() {
 		LOG_0 << SEPERATOR << "\n";
 		process();
 		std::this_thread::sleep_for(std::chrono::milliseconds(MiscHelper::randomInt()));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	}
 }
 void Worker::process() {
@@ -122,10 +138,13 @@ void Worker::process() {
 	memcpy(&taskMeta, metaMsg.data(), metaMsg.size());
 	memcpy(&taskReq, taskMsg.data(), taskMsg.size());
 
-	LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << taskMeta.taskID << ", from " << taskMeta.taskAddr.fromID;
+	LOG_0 << "worker | id:" << id_ << ", got task: taskID:" << taskMeta.taskID
+		<< ", fromClusterID:" << taskMeta.taskAddr.fromClusterID
+		<< ", fromID:" << taskMeta.taskAddr.fromID
+		<< "\n";
 
-	// update address
-	MessageHelper::swapBuffer(taskMeta.taskAddr.fromID, taskMeta.taskAddr.toID);
+	// update address, route id
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toID, std::string(taskMeta.taskAddr.fromID));
 	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromID, id_);
 	taskMeta.taskDirection = TaskDirection::TASK_REPLY;
 
@@ -136,14 +155,15 @@ void Worker::process() {
 	}
 
 	// send result
-	zmq::message_t taskResultMsg(sizeof(TaskReply)), metaMsgReply(sizeof(TaskMeta));
+	zmq::message_t metaMsgReply(sizeof(TaskMeta)), taskResultMsg(sizeof(TaskReply));
 	memcpy(metaMsgReply.data(), &taskMeta, sizeof(TaskMeta));
 	memcpy(taskResultMsg.data(), &taskResult, sizeof(TaskReply));
+
 	socket_.send(metaMsgReply, zmq::send_flags::sndmore);
 	socket_.send(taskResultMsg, zmq::send_flags::none);
 
 	workCounter_++;
-	LOG_0 << "worker | id:" << id_ << " processed task counter:" << workCounter_.load();
+	LOG_1 << "worker | id:" << id_ << " processed task counter:" << workCounter_.load();
 }
 
 ////////////////////////////////////////////////////////
@@ -172,6 +192,21 @@ LocalBalanceBroker::LocalBalanceBroker(const ClusterCfg& clusterCfg) {
 	std::string cloudTaskAddr = "tcp://" + clusterCfg_.superBrokerCfg.ip + ":" + clusterCfg_.superBrokerCfg.task_Port;
 	socketCloudTask_.connect(cloudTaskAddr);
 	LOG_0 << clusterName_ << " connect to super broker on " << cloudTaskAddr << "\n";
+
+	// signal alive to super broker
+	TaskMeta meta;
+	MessageHelper::copyStringToBuffer(meta.taskAddr.fromClusterID, clusterName_);
+	meta.taskType = TaskType::ALIVE_SIGNAL;
+
+	zmq::message_t metaMsg(sizeof(TaskMeta)), replyMsg(1);
+
+	memcpy(metaMsg.data(), &meta, sizeof(TaskMeta));
+	memcpy(replyMsg.data(), "", 1);
+
+	socketCloudTask_.send(metaMsg, zmq::send_flags::sndmore);
+	socketCloudTask_.send(replyMsg, zmq::send_flags::none);
+
+	LOG_0 << "cluster router | id:" << clusterName_ << ", alive signal sent.";
 }
 LocalBalanceBroker::~LocalBalanceBroker() {
 	socketBackEnd_.close();
@@ -183,10 +218,10 @@ void LocalBalanceBroker::runTask() {
 	LOG_0 << "local balancer running.\n";
 
 	// poll item, poll backend, frontend, cloudend
-	zmq::pollitem_t pollItems[] = { 
+	zmq::pollitem_t pollItems[] = {
 		{socketBackEnd_, 0, ZMQ_POLLIN,0},
 		{socketFrontEnd_, 0, ZMQ_POLLIN,0},
-		{socketCloudTask_, 0, ZMQ_POLLIN,0} 
+		{socketCloudTask_, 0, ZMQ_POLLIN,0}
 	};
 
 	while (true) {
@@ -200,7 +235,7 @@ void LocalBalanceBroker::runTask() {
 		if (pollItems[0].revents & ZMQ_POLLIN) {
 			routeLocalReply();
 		}
-		
+
 		// if local task arrived, forward to local worker or super broker(another cluster)
 		if (pollItems[1].revents & ZMQ_POLLIN) {
 			routeLocalRequest();
@@ -235,33 +270,59 @@ void LocalBalanceBroker::routeCloud() {
 
 			zmq::message_t workerIDMsg;
 			MessageHelper::stringToZMQMsg(workerIDMsg, workerID);
-			
+
+			// update address, request from cloud to local worker in this cluster
+			MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, clusterName_);
+			MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toID, workerID);
+
 			// route to local worker
 			socketBackEnd_.send(workerIDMsg, zmq::send_flags::sndmore);
 			socketBackEnd_.send(msgMeta, zmq::send_flags::sndmore);
 			socketBackEnd_.send(taskPayloadMsg, zmq::send_flags::none);
+
+			LOG_0 << "route request from cluster:" << taskMeta.taskAddr.fromClusterID
+				<< ", to cluster:" << taskMeta.taskAddr.toClusterID
+				<< ", workerID:" << workerID
+				<< "\n";
 		}
 		else {
-			LOG_ERROR << "broker | routeCloud no ready worker --> clusterName_:" << clusterName_
-				<< ", taskMeta.taskAddr.fromClusterID:" << taskMeta.taskAddr.fromClusterID << "\n";
+			// route request back to client with error, send this request back with error info
+			MessageHelper::swapBuffer(taskMeta.taskAddr.fromID, taskMeta.taskAddr.toID);
+			MessageHelper::swapBuffer(taskMeta.taskAddr.fromClusterID, taskMeta.taskAddr.toClusterID);
+
+			LOG_ERROR << "broker | routeCloud no ready worker(rejected) --> this clusterName_:" << clusterName_
+				<< ", fromClusterID:" << taskMeta.taskAddr.fromClusterID
+				<< ", toClusterID:" << taskMeta.taskAddr.toClusterID
+				<< ", fromID:" << taskMeta.taskAddr.fromID
+				<< ", toID:" << taskMeta.taskAddr.toID
+				<< "\n";
+
+			taskMeta.taskDirection = TaskDirection::TASK_REPLY_REJECTED;
+			memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
+
+			// send task back
+			zmq::message_t clusterMsgID, replyMsg(sizeof(TaskReply));
+			MessageHelper::stringToZMQMsg(clusterMsgID, std::string(taskMeta.taskAddr.toClusterID));
+
+			TaskReply reply{ 0.0 };
+			memcpy(replyMsg.data(), &reply, sizeof(TaskReply));
+
+			socketCloudTask_.send(msgMeta, zmq::send_flags::sndmore);
+			socketCloudTask_.send(replyMsg, zmq::send_flags::none);
 		}
 	}
 	else {
-		if (clusterName_ == std::string(taskMeta.taskAddr.toClusterID)) {
-			// got a reply task and route to client
-			std::string clientID(taskMeta.taskAddr.toID);
+		// got a reply task and route to client
+		std::string clientID(taskMeta.taskAddr.toID);
 
-			zmq::message_t clientIDMsg;
-			MessageHelper::stringToZMQMsg(clientIDMsg, taskMeta.taskAddr.toID);
+		zmq::message_t clientIDMsg;
+		MessageHelper::stringToZMQMsg(clientIDMsg, taskMeta.taskAddr.toID);
 
-			socketFrontEnd_.send(clientIDMsg, zmq::send_flags::sndmore);
-			socketFrontEnd_.send(msgMeta, zmq::send_flags::sndmore);
-			socketFrontEnd_.send(taskPayloadMsg, zmq::send_flags::none);
-		}
-		else {
-			LOG_ERROR << "broker | routeCloud cluster name mismatch --> clusterName_:" << clusterName_ 
-				<< ", taskMeta.taskAddr.toClusterID:" << taskMeta.taskAddr.toClusterID << "\n";
-		}
+		socketFrontEnd_.send(clientIDMsg, zmq::send_flags::sndmore);
+		socketFrontEnd_.send(msgMeta, zmq::send_flags::sndmore);
+		socketFrontEnd_.send(taskPayloadMsg, zmq::send_flags::none);
+
+		LOG_0 << "route reply from cluster:" << taskMeta.taskAddr.fromClusterID << ", to cluster:" << taskMeta.taskAddr.toClusterID << "\n";
 	}
 }
 void LocalBalanceBroker::routeLocalRequest() {
@@ -275,11 +336,14 @@ void LocalBalanceBroker::routeLocalRequest() {
 	TaskMeta taskMeta;
 	memcpy(&taskMeta, msgMeta.data(), msgMeta.size());
 
+	// update address, add from cluster
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
+
 	// forward task to local worker or super broker
 	if (workReadyQueue_.size() > 0) {
 		// forward to local workers if there is at least one ready worker
 		std::string workerID = workReadyQueue_.front();
-		
+
 		// update ready queue
 		workReadyQueue_.pop();
 		readyWorkerCount_ = static_cast<uint32_t>(workReadyQueue_.size());
@@ -287,11 +351,10 @@ void LocalBalanceBroker::routeLocalRequest() {
 		zmq::message_t msgWorkerID;
 		MessageHelper::stringToZMQMsg(msgWorkerID, workerID);
 
-		LOG_0 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
+		LOG_1 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
 			", task id:" << taskMeta.taskID << ", send to worker:" << workerID << "\n";
 
-		// update address
-		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
+		// update address, add target address information
 		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, clusterName_);
 		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toID, workerID);
 		memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
@@ -302,16 +365,13 @@ void LocalBalanceBroker::routeLocalRequest() {
 		socketBackEnd_.send(msgTask, zmq::send_flags::none);
 	}
 	else {
-		LOG_0 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
-			", task id:" << taskMeta.taskID << ", send to super broker.\n";
-		
-		// update address
-		MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
-
 		// forward to super broker
 		memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
 		socketCloudTask_.send(msgMeta, zmq::send_flags::sndmore);
 		socketCloudTask_.send(msgTask, zmq::send_flags::none);
+
+		LOG_0 << "broker | got msg from client:" << taskMeta.taskAddr.fromID <<
+			", task id:" << taskMeta.taskID << ", send to super broker, taskDirection:" << taskMeta.taskDirection << ".\n";
 	}
 }
 void LocalBalanceBroker::routeLocalReply() {
@@ -331,17 +391,14 @@ void LocalBalanceBroker::routeLocalReply() {
 
 	// alive signal received from local worker
 	if (taskMeta.taskType == TaskType::ALIVE_SIGNAL) {
-		LOG_0 << "broker | got alive signal from worker:" << taskMeta.taskAddr.fromID ;
+		LOG_0 << "broker | got alive signal from worker:" << taskMeta.taskAddr.fromID;
 		return;
 	}
 
-	// set proper cluster id
-	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, clusterName_);
-	MessageHelper::swapBuffer(taskMeta.taskAddr.fromClusterID, taskMeta.taskAddr.toClusterID);
+	// update address, router cluster
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, std::string(taskMeta.taskAddr.fromClusterID));
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.fromClusterID, clusterName_);
 	memcpy(msgMeta.data(), &taskMeta, sizeof(TaskMeta));
-
-	LOG_0 << "broker | got msg from worker, fromID:" << taskMeta.taskAddr.fromID << ", toID:" << taskMeta.taskAddr.toID
-		<< ", fronClusterID:" << taskMeta.taskAddr.fromClusterID << ", toClusterID:" << taskMeta.taskAddr.toClusterID << "\n";
 
 	// route to local client or another cluster
 	if (clusterName_ == std::string(taskMeta.taskAddr.toClusterID)) {
@@ -355,9 +412,15 @@ void LocalBalanceBroker::routeLocalReply() {
 		socketFrontEnd_.send(msgReply, zmq::send_flags::none);
 	}
 	else {
+		LOG_0 << "broker | got msg from worker, fromID:" << taskMeta.taskAddr.fromID << ", toID:" << taskMeta.taskAddr.toID
+			<< ", fronClusterID:" << taskMeta.taskAddr.fromClusterID << ", toClusterID:" << taskMeta.taskAddr.toClusterID
+			<< ", taskMeta.taskDirection:" << taskMeta.taskDirection
+			<< "\n";
+
 		// route to another cluster
-		socketCloudTask_.send(msgMeta, zmq::send_flags::none);
-		socketCloudTask_.send(msgReply, zmq::send_flags::none);
+		auto sd = socketCloudTask_.send(msgMeta, zmq::send_flags::sndmore);
+		sd = socketCloudTask_.send(msgReply, zmq::send_flags::none);
+		LOG_0 << "send state:" << sd.value() << "\n";
 	}
 }
 uint32_t LocalBalanceBroker::getReadyWorkerCount() {

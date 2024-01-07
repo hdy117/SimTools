@@ -48,8 +48,8 @@ void SuperBroker::statePuller() {
 	// add to clusterInfoMap_
 	clusterInfoMap_[std::string(clusterStatePtr->clusterName)] = clusterStatePtr;
 
-	LOG_0 << "super-broker got: " << clusterStatePtr->clusterName
-		<< ", ready worker count:" << clusterStatePtr->readyWorkerCount << "\n";
+	//LOG_EVERY_N(INFO, 1000) << "super-broker got: " << clusterStatePtr->clusterName
+	//	<< ", ready worker count:" << clusterStatePtr->readyWorkerCount << "\n";
 }
 void SuperBroker::taskRouter() {
 	// recv task from cluster
@@ -62,10 +62,24 @@ void SuperBroker::taskRouter() {
 	TaskMeta taskMeta;
 	memcpy(&taskMeta, metaMsg.data(), metaMsg.size());
 
-	// target cluster to route this task
-	std::string targetCluster;
+	if (taskMeta.taskType == TaskType::ALIVE_SIGNAL) {
+		LOG_0 << "got alive signal from " << taskMeta.taskAddr.fromClusterID << "\n";
+		return;
+	}
 
-	if (taskMeta.taskDirection = TaskDirection::TASK_SUBMIT) {
+	// target cluster to route this task
+	std::string targetCluster("");
+
+	if (taskMeta.taskDirection == TaskDirection::TASK_SUBMIT) {
+		LOG_0 << "super broker got a request, fromClusterID:" << taskMeta.taskAddr.fromClusterID
+			<< ", toClusterID:" << taskMeta.taskAddr.toClusterID
+			<<", fromID:"<<taskMeta.taskAddr.fromID
+			<<", toID:"<<taskMeta.taskAddr.toID
+			<< "\n";
+		if (std::string(taskMeta.taskAddr.fromID).empty() || std::string(taskMeta.taskAddr.fromClusterID).empty()) {
+			LOG_ERROR << "got null task.\n";
+			return;
+		}
 		// route this request to proper cluster
 		uint32_t maxCount = 0;
 
@@ -75,20 +89,55 @@ void SuperBroker::taskRouter() {
 			maxCount = std::max(maxCount, pair.second->readyWorkerCount);
 		}
 
-		if (targetCluster.empty()) {
-			LOG_ERROR << "can not find proper cluster to route request, from cluster:" << taskMeta.taskAddr.fromClusterID 
-				<< ", from client:" << taskMeta.taskAddr.fromID << ", request rejected.\n";
+		if (maxCount == 0 || targetCluster.empty()) {
+			// route request back to client with error, send this request back with error info
+			MessageHelper::swapBuffer(taskMeta.taskAddr.fromID, taskMeta.taskAddr.toID);
+			MessageHelper::swapBuffer(taskMeta.taskAddr.fromClusterID, taskMeta.taskAddr.toClusterID);
+
+			LOG_ERROR << "can not find proper cluster to route request, reply with rejected from cluster:" << taskMeta.taskAddr.fromClusterID
+				<< ", from client:" << taskMeta.taskAddr.fromID
+				<< ", to clusterID:" << taskMeta.taskAddr.toClusterID
+				<< ", toID:" << taskMeta.taskAddr.toID
+				<< ", request rejected.\n";
+
+			TaskReply reply;
+			reply.sum = 0.0;
+			taskMeta.taskDirection = TaskDirection::TASK_REPLY_REJECTED;
+
+			// send task back
+			zmq::message_t clusterMsgID, replyMsg(sizeof(TaskReply));
+			MessageHelper::stringToZMQMsg(clusterMsgID, std::string(taskMeta.taskAddr.toClusterID));
+
+			memcpy(metaMsg.data(), &taskMeta, sizeof(TaskMeta));
+			memcpy(replyMsg.data(), &reply, sizeof(TaskReply));
+
+			socketCloudTask_.send(clusterMsgID, zmq::send_flags::sndmore);
+			socketCloudTask_.send(metaMsg, zmq::send_flags::sndmore);
+			socketCloudTask_.send(replyMsg, zmq::send_flags::none);
 			return;
 		}
 	}
 	else {
+		LOG_0 << "super broker got a reply, fromClusterID:" << taskMeta.taskAddr.fromClusterID
+			<< ", toClusterID:" << taskMeta.taskAddr.toClusterID
+			<< ", fromID:" << taskMeta.taskAddr.fromID
+			<< ", toID:" << taskMeta.taskAddr.toID
+			<< "\n";
 		// route this reply to proper cluster
 		targetCluster = taskMeta.taskAddr.toClusterID;
 	}
 
+	// update address
+	MessageHelper::copyStringToBuffer(taskMeta.taskAddr.toClusterID, targetCluster);
+
+	LOG_0 << "super broker | route message from cluster:" << taskMeta.taskAddr.fromClusterID 
+		<< ", to cluster:" << taskMeta.taskAddr.toClusterID <<"\n";
+
 	// route
 	zmq::message_t toClusterIDMsg;
 	MessageHelper::stringToZMQMsg(toClusterIDMsg, targetCluster);
+
+	memcpy(metaMsg.data(), &taskMeta, sizeof(TaskMeta));
 
 	socketCloudTask_.send(toClusterIDMsg, zmq::send_flags::sndmore);
 	socketCloudTask_.send(metaMsg, zmq::send_flags::sndmore);
